@@ -1,0 +1,31 @@
+market:
+  history_period: "2y"
+  interval: "1d"
+  sp500_source_url: "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies"
+  benchmark: "SPY"
+
+scanner:
+  min_price: 10.0
+  min_avg_dollar_volume_20d: 50000000
+  batch_size: 50
+  max_symbols: null
+
+technical:
+  sma_fast: 20
+  sma_mid: 50
+  sma_slow: 200
+  rsi_period: 14
+  atr_period: 14
+  momentum_short: 21
+  momentum_long: 63
+  breakout_window: 20
+  volume_window: 20
+  stop_atr_multiple: 1.5
+  target_atr_multiple: 3.0
+
+portfolio:
+  starting_cash: 100000
+  positions: 10
+
+database:
+  path: "data/stock_scout.db"
