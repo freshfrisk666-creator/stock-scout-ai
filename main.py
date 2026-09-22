@@ -6,8 +6,8 @@ import yaml
 
 from agents.scanner import run_scan
 from agents.technical import analyze_candidates
-from database.db import save_dataframe
-from portfolio.paper_trading import build_equal_weight_orders
+from database.db import ensure_portfolio_schema, save_dataframe
+from portfolio.paper_trading import PaperPortfolio
 from scoring.signal_engine import rank_top10
 
 
@@ -17,6 +17,10 @@ def load_config(path: str = "config/config.yaml") -> dict:
 
 def run_pipeline(config: dict | None = None):
     cfg = config or load_config()
+    db_path = cfg["database"]["path"]
+
+    ensure_portfolio_schema(db_path)
+
     scan, history = run_scan(
         source_url=cfg["market"]["sp500_source_url"],
         min_price=cfg["scanner"]["min_price"],
@@ -26,23 +30,65 @@ def run_pipeline(config: dict | None = None):
         batch_size=cfg["scanner"]["batch_size"],
         max_symbols=cfg["scanner"]["max_symbols"],
     )
+
     technical = analyze_candidates(scan, history, **cfg["technical"])
     top10 = rank_top10(technical, cfg["portfolio"]["positions"])
-    paper = build_equal_weight_orders(
-        top10,
+
+    latest_prices = {
+        ticker: float(frame["Close"].iloc[-1])
+        for ticker, frame in history.items()
+        if not frame.empty
+    }
+
+    portfolio = PaperPortfolio(
+        db_path=db_path,
         starting_cash=cfg["portfolio"]["starting_cash"],
-        positions=cfg["portfolio"]["positions"],
+        max_positions=cfg["portfolio"]["positions"],
     )
-    save_dataframe(scan, "scans", cfg["database"]["path"])
-    save_dataframe(technical, "technical_signals", cfg["database"]["path"])
-    save_dataframe(top10, "top10", cfg["database"]["path"])
-    save_dataframe(paper, "paper_orders", cfg["database"]["path"])
-    return scan, top10, paper
+
+    closed = portfolio.evaluate_exits(latest_prices)
+    open_positions = portfolio.sync_from_top10(top10)
+    snapshot = portfolio.snapshot(latest_prices)
+    portfolio_status = portfolio.status(latest_prices)
+
+    save_dataframe(scan, "scans", db_path)
+    save_dataframe(technical, "technical_signals", db_path)
+    save_dataframe(top10, "top10", db_path)
+    save_dataframe(open_positions, "portfolio_status", db_path)
+
+    return (
+        scan,
+        top10,
+        open_positions,
+        snapshot,
+        portfolio_status,
+        closed,
+    )
 
 
 if __name__ == "__main__":
-    scan, top10, paper = run_pipeline()
+    scan, top10, open_positions, snapshot, portfolio_status, closed = run_pipeline()
+
     print(f"Scanned: {len(scan)} symbols")
-    print(top10[["rank", "ticker", "technical_score", "entry", "stop", "target", "risk_reward"]].to_string(index=False))
-    print("\nPaper orders:")
-    print(paper.to_string(index=False))
+    print("\nTop 10:")
+    print(
+        top10[
+            ["rank", "ticker", "technical_score", "entry", "stop", "target", "risk_reward"]
+        ].to_string(index=False)
+    )
+
+    print("\nClosed this run:")
+    print(closed if closed else "None")
+
+    print("\nOpen paper positions:")
+    if open_positions.empty:
+        print("None")
+    else:
+        print(
+            open_positions[
+                ["rank", "ticker", "entry_price", "shares", "notional", "stop", "target"]
+            ].to_string(index=False)
+        )
+
+    print("\nPortfolio snapshot:")
+    print(snapshot)
