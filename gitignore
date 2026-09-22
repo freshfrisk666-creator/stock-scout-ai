@@ -1,0 +1,16 @@
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ipynb_checkpoints/
+.venv/
+venv/
+.env
+
+*.db
+*.sqlite
+*.sqlite3
+
+data/*.csv
+data/*.parquet
+
+.DS_Store
