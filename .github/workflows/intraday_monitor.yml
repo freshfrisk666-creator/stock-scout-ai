@@ -4,9 +4,14 @@ on:
   workflow_dispatch:
   schedule:
     # Run every 15 minutes during the US cash session.
-    # GitHub Actions supports timezone-aware schedules; the workflow still
-    # may start later than the nominal time under scheduler load.
-    - cron: "*/15 9-16 * * 1-5"
+    # 09:30 and then :45, plus every 15 minutes from 10:00 through 15:45,
+    # and a final check at 16:00, in America/New_York time.
+    # GitHub Actions may delay scheduled workflows under scheduler load.
+    - cron: "30,45 9 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "*/15 10-15 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "0 16 * * 1-5"
       timezone: "America/New_York"
 
 permissions:
