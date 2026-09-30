@@ -1,29 +1,58 @@
-# Stock Scout AI — Trade Performance Report V1
+# Stock Scout AI — Automated Paper Trading V1
 
-Questa estensione aggiunge il report aggregato dei trade CLOSED sopra il modulo Trade Analysis V1.
+Questa estensione trasforma il runner manuale in un ciclo di **paper trading giornaliero automatizzato** usando GitHub Actions.
 
-## Nuovi file
+## Cosa aggiunge
 
-- `analysis/trade_report.py`
-- `tests/test_trade_report.py`
-- `notebooks/Stock_Scout_AI_V1.ipynb` aggiornato con la sezione 10
+- `runner/daily_runner.py`: esegue un ciclo completo chiamando `main.run_pipeline()`.
+- `.github/workflows/paper_trading.yml`: avvia il ciclo nei giorni feriali alle 22:30 UTC e permette anche un avvio manuale con **Run workflow**.
+- `.gitignore`: mantiene `data/stock_scout.db` versionabile, così lo stato del portfolio può passare da una run alla successiva.
+- `tests/test_daily_runner.py`: test del nuovo entrypoint.
 
-## Metriche
+## Flusso
 
-Il report calcola:
+```text
+GitHub Actions
+      ↓
+runner.daily_runner
+      ↓
+main.run_pipeline()
+      ↓
+market data → scanner → technical → Top 10
+      ↓
+evaluate exits → sync new positions
+      ↓
+SQLite data/stock_scout.db
+      ↓
+Git commit del DB
+```
 
-- numero totale di trade
-- WIN / LOSS / FLAT
-- win rate
-- P&L realizzato totale e medio
-- media dei vincitori e dei perdenti
-- rendimento medio
-- R-multiple medio
-- durata media
-- migliore / peggiore trade
-- profit factor
-- maximum drawdown sul P&L cumulato
+## Importante
 
-Inoltre confronta i punteggi `technical_score`, `trend_score`, `momentum_score`, `rsi_score`, `volume_score` e `breakout_score` per outcome.
+Questa è ancora **paper trading**: usa dati di mercato per simulare BUY/SELL e P&L, ma non invia ordini a un broker e non muove denaro reale.
 
-Le differenze sono descrittive e non implicano causalità.
+Il cron è giornaliero, non intraday. GitHub Actions può avviare i job con ritardi; non è adatto a un motore tick-by-tick o a esecuzione con garanzie di latenza.
+
+## Installazione nel repository
+
+Aggiungere:
+
+```text
+runner/__init__.py
+runner/daily_runner.py
+.github/workflows/paper_trading.yml
+ tests/test_daily_runner.py
+ data/.gitkeep
+```
+
+e sostituire `.gitignore` con quello incluso in questo pacchetto.
+
+## Primo test
+
+Dopo il commit/push, aprire:
+
+**GitHub → Actions → paper-trading → Run workflow**
+
+Il workflow esegue un solo ciclo e poi prova a committare `data/stock_scout.db` su `main`.
+
+Dopo la prima esecuzione, la pagina del repository dovrebbe mostrare il database persistente dentro `data/`.

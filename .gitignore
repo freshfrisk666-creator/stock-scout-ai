@@ -9,6 +9,11 @@ venv/
 *.db
 *.sqlite
 *.sqlite3
+# Keep the V1 persistent paper-trading database in Git so scheduled
+# GitHub Actions runs can carry portfolio state from one run to the next.
+!data/
+!data/stock_scout.db
+!data/.gitkeep
 
 data/*.csv
 data/*.parquet
