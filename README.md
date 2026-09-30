@@ -1,54 +1,53 @@
-# Stock Scout AI
+# Stock Scout AI — Trade Analysis V1
 
-Stock Scout AI is a transparent, modular research pipeline for the S&P 500.
+Aggiunge la prima fase di analisi post-trade senza modificare il ranking M1/M2.
 
-## V1 milestone
+## File da aggiungere/sostituire
 
-> Run one command → analyze the S&P 500 → return the top 10 opportunities with a traceable methodology, entry/stop/target, and paper-trading orders.
+- `analysis/__init__.py` — nuovo package
+- `analysis/trade_analysis.py` — analisi deterministica delle posizioni CLOSED
+- `tests/test_trade_analysis.py` — test della nuova analisi
+- `notebooks/Stock_Scout_AI_V1.ipynb` — aggiunta della sezione `9. Trade Analysis — WHY DID IT WIN / LOSE?`
 
-The first implementation deliberately starts with **M1 Data Engine + M2 Technical Engine**. AI intelligence, learning loops, challenger strategies, and richer data sources come later.
+## Cosa produce
 
-## Architecture
+Per ogni posizione `CLOSED` legge il `signal_snapshot` salvato all'ingresso e calcola:
 
-```text
-S&P 500
-   ↓
-M1 Data Engine
-   ↓
-Scanner / Liquidity Filter
-   ↓
-M2 Technical Engine
-   ↓
-Technical Ranking
-   ↓
-Top 10
-   ↓
-Paper Portfolio
-```
+- WIN / LOSS / FLAT
+- entry / exit / stop / target
+- P&L e rendimento percentuale
+- R-multiple realizzato
+- durata del trade
+- rank e punteggi del segnale
+- componenti forti/deboli del segnale
+- una spiegazione testuale osservazionale
 
-## Stack
-
-- Python
-- pandas / NumPy
-- yfinance
-- SQLite
-- Jupyter / Google Colab
-
-## Run locally
-
-```bash
-pip install -r requirements.txt
-python main.py
-```
+Non viene modificata la strategia di ranking e non viene assunto che un singolo fattore abbia causato il risultato.
 
 ## Colab
 
-Open `notebooks/Stock_Scout_AI_V1.ipynb` in Google Colab after the repository is pushed to GitHub.
+Il notebook aggiornato importa:
 
-## Methodology
+```python
+from analysis.trade_analysis import load_closed_trade_analysis
+```
 
-Each candidate exposes the raw inputs used by the technical engine: price, SMA20/50/200, RSI14, ATR14, momentum 21d/63d, volume ratio, breakout strength, component scores, total technical score, entry, stop, target, and risk/reward.
+Se non esistono ancora trade `CLOSED`, la cella mostra semplicemente:
 
-The paper portfolio currently uses equal-weight whole-share orders with residual cash left uninvested.
+`No CLOSED trades available yet.`
 
-This is a research and paper-trading prototype, not investment advice.
+Questo è normale: l'analisi diventa popolata quando una posizione raggiunge stop o target.
+
+## Test
+
+Nel repository completo eseguire:
+
+```bash
+pytest -q
+```
+
+Test specifici della nuova funzione:
+
+```bash
+pytest -q tests/test_trade_analysis.py
+```
