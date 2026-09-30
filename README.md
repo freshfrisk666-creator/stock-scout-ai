@@ -1,58 +1,40 @@
-# Stock Scout AI — Automated Paper Trading V1
+# Stock Scout AI — Intraday Paper Trading V1
 
-Questa estensione trasforma il runner manuale in un ciclo di **paper trading giornaliero automatizzato** usando GitHub Actions.
+Questo pacchetto aggiunge il monitoraggio intraday senza rifare lo scanner S&P 500 a ogni ciclo.
 
-## Cosa aggiunge
+## Architettura
 
-- `runner/daily_runner.py`: esegue un ciclo completo chiamando `main.run_pipeline()`.
-- `.github/workflows/paper_trading.yml`: avvia il ciclo nei giorni feriali alle 22:30 UTC e permette anche un avvio manuale con **Run workflow**.
-- `.gitignore`: mantiene `data/stock_scout.db` versionabile, così lo stato del portfolio può passare da una run alla successiva.
-- `tests/test_daily_runner.py`: test del nuovo entrypoint.
+- **Daily runner**: seleziona il Top 10 e gestisce gli ingressi una volta al giorno dopo la chiusura USA.
+- **Intraday monitor**: ogni 15 minuti controlla soltanto le posizioni OPEN, usando barre Yahoo Finance da 5 minuti.
+- **Exit logic**: se una barra tocca lo stop o il target, viene registrata una SELL virtuale al livello di stop/target.
+- Se la stessa barra tocca sia stop sia target, viene usato lo **STOP** perché l'ordine intrabar non è osservabile dalla barra OHLC.
+- Lo `signal_snapshot` del BUY viene copiato nel SELL.
 
-## Flusso
-
-```text
-GitHub Actions
-      ↓
-runner.daily_runner
-      ↓
-main.run_pipeline()
-      ↓
-market data → scanner → technical → Top 10
-      ↓
-evaluate exits → sync new positions
-      ↓
-SQLite data/stock_scout.db
-      ↓
-Git commit del DB
-```
-
-## Importante
-
-Questa è ancora **paper trading**: usa dati di mercato per simulare BUY/SELL e P&L, ma non invia ordini a un broker e non muove denaro reale.
-
-Il cron è giornaliero, non intraday. GitHub Actions può avviare i job con ritardi; non è adatto a un motore tick-by-tick o a esecuzione con garanzie di latenza.
-
-## Installazione nel repository
+## File da aggiungere/sostituire
 
 Aggiungere:
 
-```text
-runner/__init__.py
-runner/daily_runner.py
-.github/workflows/paper_trading.yml
- tests/test_daily_runner.py
- data/.gitkeep
-```
+- `runner/intraday_monitor.py`
+- `tests/test_intraday_monitor.py`
+- `.github/workflows/intraday_monitor.yml`
 
-e sostituire `.gitignore` con quello incluso in questo pacchetto.
+Aggiornare:
 
-## Primo test
+- `.github/workflows/paper_trading.yml`
+- `config/config.yaml` aggiungendo il blocco `intraday` contenuto in `config.yaml` di questo pacchetto.
 
-Dopo il commit/push, aprire:
+Non serve modificare il notebook in questa fase.
 
-**GitHub → Actions → paper-trading → Run workflow**
+## Dati
 
-Il workflow esegue un solo ciclo e poi prova a committare `data/stock_scout.db` su `main`.
+yfinance supporta intervalli intraday come `5m` e `15m`; i dati intraday hanno una finestra storica limitata, mentre qui usiamo solo `period="1d"` per il monitor corrente. La fetch riguarda solo i ticker OPEN. 
 
-Dopo la prima esecuzione, la pagina del repository dovrebbe mostrare il database persistente dentro `data/`.
+## Esecuzione
+
+Il workflow `intraday-paper-monitor` può essere avviato anche manualmente da GitHub Actions con `workflow_dispatch`. Lo scheduler è configurato ogni 15 minuti tra le 09:00 e le 16:00 America/New_York; il codice verifica comunque che la sessione cash sia attiva prima di fare il monitoraggio.
+
+GitHub Actions supporta schedule timezone-aware e un intervallo minimo di 5 minuti; i job schedulati possono comunque partire in ritardo sotto carico.
+
+## Nota di simulazione
+
+Questo è **paper trading**: non invia ordini a un broker e non rappresenta un sistema di esecuzione live. GitHub Actions non va considerato un motore di esecuzione con latenza garantita.

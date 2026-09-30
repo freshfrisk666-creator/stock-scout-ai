@@ -1,10 +1,12 @@
-name: paper-trading
+name: intraday-paper-monitor
 
 on:
   workflow_dispatch:
   schedule:
-    # Daily selection after the US cash-market close.
-    - cron: "30 16 * * 1-5"
+    # Run every 15 minutes during the US cash session.
+    # GitHub Actions supports timezone-aware schedules; the workflow still
+    # may start later than the nominal time under scheduler load.
+    - cron: "*/15 9-16 * * 1-5"
       timezone: "America/New_York"
 
 permissions:
@@ -15,9 +17,9 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  paper-trading:
+  intraday-monitor:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 10
 
     steps:
       - name: Checkout repository
@@ -36,10 +38,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run daily paper-trading cycle
-        run: python -m runner.daily_runner
+      - name: Monitor open paper positions
+        run: python -m runner.intraday_monitor
 
-      - name: Persist paper portfolio database
+      - name: Persist paper portfolio database if changed
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -51,5 +53,5 @@ jobs:
             exit 0
           fi
 
-          git commit -m "chore: update daily paper portfolio state"
+          git commit -m "chore: update intraday paper portfolio state"
           git push origin HEAD:main

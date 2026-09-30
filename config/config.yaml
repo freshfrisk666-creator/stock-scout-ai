@@ -29,3 +29,13 @@ portfolio:
 
 database:
   path: "data/stock_scout.db"
+
+intraday:
+  enabled: true
+  interval: "5m"
+  period: "1d"
+  timezone: "America/New_York"
+  market_open: "09:30"
+  market_close: "16:00"
+  monitor_schedule_minutes: 15
+  max_bar_age_minutes: 20
