@@ -8,7 +8,9 @@ import pandas as pd
 
 def get_connection(db_path: str = "data/stock_scout.db") -> sqlite3.Connection:
     Path(db_path).parent.mkdir(parents=True, exist_ok=True)
-    return sqlite3.connect(db_path)
+    conn = sqlite3.connect(db_path)
+    conn.row_factory = sqlite3.Row
+    return conn
 
 
 def save_dataframe(
@@ -20,6 +22,30 @@ def save_dataframe(
         return
     with get_connection(db_path) as conn:
         frame.to_sql(table_name, conn, if_exists="append", index=False)
+
+
+def _ensure_columns(conn: sqlite3.Connection) -> None:
+    """Add new columns to existing V1 tables without deleting old data."""
+    migrations = {
+        "positions": {
+            "signal_snapshot": "TEXT",
+        },
+        "trades": {
+            "signal_snapshot": "TEXT",
+        },
+    }
+
+    for table, columns in migrations.items():
+        existing = {
+            row[1]
+            for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
+        }
+
+        for column, column_type in columns.items():
+            if column not in existing:
+                conn.execute(
+                    f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"
+                )
 
 
 def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
@@ -47,6 +73,7 @@ def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
                 target REAL NOT NULL,
                 status TEXT NOT NULL,
                 technical_score REAL,
+                signal_snapshot TEXT,
                 exit_date TEXT,
                 exit_price REAL,
                 realized_pnl REAL DEFAULT 0,
@@ -72,7 +99,8 @@ def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
                 notional REAL NOT NULL,
                 cash_after REAL NOT NULL,
                 reason TEXT NOT NULL,
-                realized_pnl REAL DEFAULT 0
+                realized_pnl REAL DEFAULT 0,
+                signal_snapshot TEXT
             );
 
             CREATE INDEX IF NOT EXISTS idx_trades_portfolio_timestamp
@@ -92,3 +120,7 @@ def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
                 ON portfolio_snapshots(portfolio_id, timestamp);
             """
         )
+
+        # Backward-compatible migration for DBs created before Signal Attribution.
+        _ensure_columns(conn)
+        conn.commit()

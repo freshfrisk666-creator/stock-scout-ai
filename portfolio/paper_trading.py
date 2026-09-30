@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+import json
 import math
 import sqlite3
 
@@ -11,6 +12,45 @@ from database.db import ensure_portfolio_schema, get_connection
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _json_safe(value):
+    """Convert common pandas/numpy scalar values into JSON-safe values."""
+    if value is None:
+        return None
+
+    try:
+        if pd.isna(value):
+            return None
+    except (TypeError, ValueError):
+        pass
+
+    if hasattr(value, "item"):
+        try:
+            value = value.item()
+        except (AttributeError, ValueError):
+            pass
+
+    if isinstance(value, (str, int, float, bool)) or value is None:
+        return value
+
+    return str(value)
+
+
+def build_signal_snapshot(row: pd.Series) -> str:
+    """Serialize the complete Top10 row used to open the position."""
+    snapshot = {
+        str(key): _json_safe(value)
+        for key, value in row.items()
+    }
+    snapshot["_snapshot_version"] = "v1"
+
+    return json.dumps(
+        snapshot,
+        sort_keys=True,
+        ensure_ascii=False,
+        separators=(",", ":"),
+    )
 
 
 def build_equal_weight_orders(
@@ -183,14 +223,16 @@ class PaperPortfolio:
                 if notional > cash:
                     continue
 
+                signal_snapshot = build_signal_snapshot(row)
+
                 cursor = conn.execute(
                     """
                     INSERT INTO positions(
                         portfolio_id, ticker, rank, entry_date, entry_price,
                         shares, notional, stop, target, status,
-                        technical_score, exit_date, exit_price,
-                        realized_pnl, close_reason
-                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, NULL, NULL, 0, NULL)
+                        technical_score, signal_snapshot,
+                        exit_date, exit_price, realized_pnl, close_reason
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'OPEN', ?, ?, NULL, NULL, 0, NULL)
                     """,
                     (
                         self.portfolio_id,
@@ -203,6 +245,7 @@ class PaperPortfolio:
                         float(row["stop"]),
                         float(row["target"]),
                         float(row.get("technical_score", 0.0)),
+                        signal_snapshot,
                     ),
                 )
                 position_id = cursor.lastrowid
@@ -215,8 +258,9 @@ class PaperPortfolio:
                     """
                     INSERT INTO trades(
                         portfolio_id, position_id, ticker, side, timestamp,
-                        price, shares, notional, cash_after, reason, realized_pnl
-                    ) VALUES (?, ?, ?, 'BUY', ?, ?, ?, ?, ?, 'OPEN_POSITION', 0)
+                        price, shares, notional, cash_after, reason,
+                        realized_pnl, signal_snapshot
+                    ) VALUES (?, ?, ?, 'BUY', ?, ?, ?, ?, ?, 'OPEN_POSITION', 0, ?)
                     """,
                     (
                         self.portfolio_id,
@@ -227,6 +271,7 @@ class PaperPortfolio:
                         shares,
                         notional,
                         cash,
+                        signal_snapshot,
                     ),
                 )
 
@@ -246,7 +291,7 @@ class PaperPortfolio:
         with get_connection(self.db_path) as conn:
             rows = conn.execute(
                 """
-                SELECT id, ticker, shares, entry_price, stop, target
+                SELECT id, ticker, shares, entry_price, stop, target, signal_snapshot
                 FROM positions
                 WHERE portfolio_id = ? AND status = 'OPEN'
                 """,
@@ -255,7 +300,15 @@ class PaperPortfolio:
 
             cash = self._get_cash(conn)
 
-            for position_id, ticker, shares, entry_price, stop, target in rows:
+            for (
+                position_id,
+                ticker,
+                shares,
+                entry_price,
+                stop,
+                target,
+                signal_snapshot,
+            ) in rows:
                 if ticker not in latest_prices:
                     continue
 
@@ -297,8 +350,9 @@ class PaperPortfolio:
                     """
                     INSERT INTO trades(
                         portfolio_id, position_id, ticker, side, timestamp,
-                        price, shares, notional, cash_after, reason, realized_pnl
-                    ) VALUES (?, ?, ?, 'SELL', ?, ?, ?, ?, ?, ?, ?)
+                        price, shares, notional, cash_after, reason,
+                        realized_pnl, signal_snapshot
+                    ) VALUES (?, ?, ?, 'SELL', ?, ?, ?, ?, ?, ?, ?, ?)
                     """,
                     (
                         self.portfolio_id,
@@ -311,6 +365,7 @@ class PaperPortfolio:
                         cash,
                         reason,
                         realized_pnl,
+                        signal_snapshot,
                     ),
                 )
 
@@ -322,6 +377,7 @@ class PaperPortfolio:
                         "shares": int(shares),
                         "realized_pnl": realized_pnl,
                         "reason": reason,
+                        "signal_snapshot": signal_snapshot,
                     }
                 )
 
