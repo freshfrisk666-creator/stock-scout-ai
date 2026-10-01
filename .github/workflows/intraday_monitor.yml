@@ -16,6 +16,7 @@ on:
 
 permissions:
   contents: write
+  issues: write
 
 concurrency:
   group: stock-scout-ai-paper-portfolio
@@ -44,7 +45,45 @@ jobs:
           pip install -r requirements.txt
 
       - name: Monitor open paper positions
-        run: python -m runner.intraday_monitor
+        id: monitor
+        shell: bash
+        run: |
+          set -o pipefail
+          python -m runner.intraday_monitor | tee intraday_monitor.log
+
+          closed_count="$(grep -E '^Closed this cycle: [0-9]+$' intraday_monitor.log | tail -1 | awk '{print $4}')"
+          closed_count="${closed_count:-0}"
+          echo "closed_count=$closed_count" >> "$GITHUB_OUTPUT"
+
+      - name: Notify trade closure
+        if: steps.monitor.outputs.closed_count != '0'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+
+          title="Stock Scout AI — Paper Monitor Alerts"
+          issue_url="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "$title in:title" \
+            --json url \
+            --jq '.[0].url // empty')"
+
+          if [ -z "$issue_url" ]; then
+            issue_url="$(gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$title" \
+              --body "Automated alerts from the intraday paper-trading monitor. This issue is updated only when one or more paper positions are CLOSED.")"
+          fi
+
+          closed_lines="$(grep '^CLOSED ' intraday_monitor.log || true)"
+          timestamp="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+          body="## Paper trade closure detected\n\n**Detected:** $timestamp\n\n**Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}\n\n### Trades\n\n\`\`\`text\n$closed_lines\n\`\`\`\n\nThe full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report."
+
+          gh issue comment "$issue_url" --body "$body"
 
       - name: Persist paper portfolio database if changed
         run: |
