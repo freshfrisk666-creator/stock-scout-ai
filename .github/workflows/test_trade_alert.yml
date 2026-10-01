@@ -1,0 +1,40 @@
+name: test-trade-alert
+
+on:
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+jobs:
+  test-alert:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Create or update test alert issue
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          title="Stock Scout AI — Paper Monitor Alerts"
+          issue_url="$(gh issue list \
+            --repo "$GITHUB_REPOSITORY" \
+            --state open \
+            --search "$title in:title" \
+            --json url \
+            --jq '.[0].url // empty')"
+
+          if [ -z "$issue_url" ]; then
+            issue_url="$(gh issue create \
+              --repo "$GITHUB_REPOSITORY" \
+              --title "$title" \
+              --body "Automated alerts from the intraday paper-trading monitor. This is a MANUAL NOTIFICATION TEST; it does not create or close any trade and does not modify the paper-trading database.")"
+          fi
+
+          timestamp="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
+
+          gh issue comment "$issue_url" --body "## 🔔 Test notification\n\n**Detected:** $timestamp\n\nThis is a manual notification test for Stock Scout AI.\n\nNo trade was opened or closed. The paper-trading database was not modified.\n\nWhen a real STOP/TARGET closure occurs, the intraday monitor will post the real trade details in this same issue."
+
+          echo "Alert issue: $issue_url"
