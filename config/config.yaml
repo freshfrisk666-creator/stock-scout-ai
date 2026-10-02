@@ -30,6 +30,25 @@ portfolio:
 database:
   path: "data/stock_scout.db"
 
+# Profiles prepared for the separate strategy-engine implementation.
+# DAILY remains disabled until intraday entries and end-of-session exits are tested.
+strategies:
+  swing:
+    enabled: true
+    label: "SWING"
+    min_horizon_sessions: 2
+    max_horizon_sessions: 20
+    signal_interval: "1d"
+    stop_atr_multiple: 1.5
+    target_atr_multiple: 3.0
+  daily:
+    enabled: false
+    label: "DAILY"
+    min_horizon_sessions: 0
+    max_horizon_sessions: 1
+    signal_interval: "5m"
+    close_by_market_end: true
+
 intraday:
   enabled: true
   interval: "5m"

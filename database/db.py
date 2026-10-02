@@ -13,11 +13,7 @@ def get_connection(db_path: str = "data/stock_scout.db") -> sqlite3.Connection:
     return conn
 
 
-def save_dataframe(
-    frame: pd.DataFrame,
-    table_name: str,
-    db_path: str = "data/stock_scout.db",
-) -> None:
+def save_dataframe(frame: pd.DataFrame, table_name: str, db_path: str = "data/stock_scout.db") -> None:
     if frame is None or frame.empty:
         return
     with get_connection(db_path) as conn:
@@ -25,27 +21,23 @@ def save_dataframe(
 
 
 def _ensure_columns(conn: sqlite3.Connection) -> None:
-    """Add new columns to existing V1 tables without deleting old data."""
+    """Add compatible columns to existing V1 tables without deleting records."""
     migrations = {
         "positions": {
             "signal_snapshot": "TEXT",
+            "strategy_type": "TEXT NOT NULL DEFAULT 'SWING'",
+            "planned_horizon_sessions": "INTEGER NOT NULL DEFAULT 20",
         },
         "trades": {
             "signal_snapshot": "TEXT",
+            "strategy_type": "TEXT NOT NULL DEFAULT 'SWING'",
         },
     }
-
     for table, columns in migrations.items():
-        existing = {
-            row[1]
-            for row in conn.execute(f"PRAGMA table_info({table})").fetchall()
-        }
-
+        existing = {row[1] for row in conn.execute(f"PRAGMA table_info({table})").fetchall()}
         for column, column_type in columns.items():
             if column not in existing:
-                conn.execute(
-                    f"ALTER TABLE {table} ADD COLUMN {column} {column_type}"
-                )
+                conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
 
 
 def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
@@ -59,7 +51,6 @@ def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
                 max_positions INTEGER NOT NULL,
                 updated_at TEXT NOT NULL
             );
-
             CREATE TABLE IF NOT EXISTS positions (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 portfolio_id TEXT NOT NULL,
@@ -74,19 +65,18 @@ def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
                 status TEXT NOT NULL,
                 technical_score REAL,
                 signal_snapshot TEXT,
+                strategy_type TEXT NOT NULL DEFAULT 'SWING',
+                planned_horizon_sessions INTEGER NOT NULL DEFAULT 20,
                 exit_date TEXT,
                 exit_price REAL,
                 realized_pnl REAL DEFAULT 0,
                 close_reason TEXT
             );
-
             CREATE INDEX IF NOT EXISTS idx_positions_portfolio_status
                 ON positions(portfolio_id, status);
-
             CREATE UNIQUE INDEX IF NOT EXISTS uq_open_position_ticker
                 ON positions(portfolio_id, ticker, status)
                 WHERE status = 'OPEN';
-
             CREATE TABLE IF NOT EXISTS trades (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 portfolio_id TEXT NOT NULL,
@@ -100,12 +90,11 @@ def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
                 cash_after REAL NOT NULL,
                 reason TEXT NOT NULL,
                 realized_pnl REAL DEFAULT 0,
-                signal_snapshot TEXT
+                signal_snapshot TEXT,
+                strategy_type TEXT NOT NULL DEFAULT 'SWING'
             );
-
             CREATE INDEX IF NOT EXISTS idx_trades_portfolio_timestamp
                 ON trades(portfolio_id, timestamp);
-
             CREATE TABLE IF NOT EXISTS portfolio_snapshots (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 portfolio_id TEXT NOT NULL,
@@ -115,12 +104,9 @@ def ensure_portfolio_schema(db_path: str = "data/stock_scout.db") -> None:
                 equity REAL NOT NULL,
                 unrealized_pnl REAL NOT NULL
             );
-
             CREATE INDEX IF NOT EXISTS idx_snapshots_portfolio_timestamp
                 ON portfolio_snapshots(portfolio_id, timestamp);
             """
         )
-
-        # Backward-compatible migration for DBs created before Signal Attribution.
         _ensure_columns(conn)
         conn.commit()
