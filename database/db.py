@@ -31,9 +31,15 @@ def save_dataframe(
     frame: pd.DataFrame,
     table_name: str,
     db_path: str = "data/stock_scout.db",
+    if_exists: str = "append",
 ) -> None:
     if frame is None or frame.empty:
         return
+
+    if if_exists not in {"append", "replace", "fail"}:
+        raise ValueError(
+            "if_exists must be one of: 'append', 'replace', 'fail'"
+        )
 
     with get_connection(db_path) as conn:
         existing_tables = {
@@ -43,7 +49,8 @@ def save_dataframe(
             ).fetchall()
         }
 
-        if table_name in existing_tables:
+        # Schema evolution is needed only when appending to an existing table.
+        if if_exists == "append" and table_name in existing_tables:
             existing_columns = {
                 row[1]
                 for row in conn.execute(
@@ -63,7 +70,7 @@ def save_dataframe(
         frame.to_sql(
             table_name,
             conn,
-            if_exists="append",
+            if_exists=if_exists,
             index=False,
         )
 
@@ -102,7 +109,7 @@ def ensure_portfolio_schema(
 ) -> None:
     with get_connection(db_path) as conn:
         conn.executescript(
-            """
+            '''
             CREATE TABLE IF NOT EXISTS portfolio_state (
                 portfolio_id TEXT PRIMARY KEY,
                 starting_cash REAL NOT NULL,
@@ -172,7 +179,7 @@ def ensure_portfolio_schema(
 
             CREATE INDEX IF NOT EXISTS idx_snapshots_portfolio_timestamp
                 ON portfolio_snapshots(portfolio_id, timestamp);
-            """
+            '''
         )
 
         _ensure_columns(conn)

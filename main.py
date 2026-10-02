@@ -54,7 +54,15 @@ def run_pipeline(config: dict | None = None):
     save_dataframe(scan, "scans", db_path)
     save_dataframe(technical, "technical_signals", db_path)
     save_dataframe(top10, "top10", db_path)
-    save_dataframe(open_positions, "portfolio_status", db_path)
+
+    # portfolio_status contains only the current state.
+    # Replace it each run so rows are not duplicated.
+    save_dataframe(
+        portfolio_status,
+        "portfolio_status",
+        db_path,
+        if_exists="replace",
+    )
 
     return (
         scan,
