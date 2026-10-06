@@ -3,13 +3,14 @@ name: intraday-paper-monitor
 on:
   workflow_dispatch:
   schedule:
-    # Run every 15 minutes during the US cash session.
-    # 09:30 and then :45, plus every 15 minutes from 10:00 through 15:45,
+    # Run every 5 minutes during the US cash session.
+    # 09:30–09:55, every 5 minutes from 10:00–15:55,
     # and a final check at 16:00, in America/New_York time.
+    # Using the exchange timezone keeps DST automatic for Italy/USA changes.
     # GitHub Actions may delay scheduled workflows under scheduler load.
-    - cron: "30,45 9 * * 1-5"
+    - cron: "30-59/5 9 * * 1-5"
       timezone: "America/New_York"
-    - cron: "*/15 10-15 * * 1-5"
+    - cron: "*/5 10-15 * * 1-5"
       timezone: "America/New_York"
     - cron: "0 16 * * 1-5"
       timezone: "America/New_York"
@@ -64,24 +65,28 @@ jobs:
           set -euo pipefail
 
           title="Stock Scout AI — Paper Monitor Alerts"
-          issue_url="$(gh issue list \
-            --repo "$GITHUB_REPOSITORY" \
-            --state open \
-            --search "$title in:title" \
-            --json url \
-            --jq '.[0].url // empty')"
+          issue_url="$(gh issue list             --repo "$GITHUB_REPOSITORY"             --state open             --search "$title in:title"             --json url             --jq '.[0].url // empty')"
 
           if [ -z "$issue_url" ]; then
-            issue_url="$(gh issue create \
-              --repo "$GITHUB_REPOSITORY" \
-              --title "$title" \
-              --body "Automated alerts from the intraday paper-trading monitor. This issue is updated only when one or more paper positions are CLOSED.")"
+            issue_url="$(gh issue create               --repo "$GITHUB_REPOSITORY"               --title "$title"               --body "Automated alerts from the intraday paper-trading monitor. This issue is updated only when one or more paper positions are CLOSED.")"
           fi
 
           closed_lines="$(grep '^CLOSED ' intraday_monitor.log || true)"
           timestamp="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-          body="## Paper trade closure detected\n\n**Detected:** $timestamp\n\n**Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}\n\n### Trades\n\n\`\`\`text\n$closed_lines\n\`\`\`\n\nThe full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report."
+          body="## Paper trade closure detected
+
+**Detected:** $timestamp
+
+**Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}
+
+### Trades
+
+\`\`\`text
+$closed_lines
+\`\`\`
+
+The full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report."
 
           gh issue comment "$issue_url" --body "$body"
 
