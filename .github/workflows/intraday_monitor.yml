@@ -75,21 +75,33 @@ jobs:
           timestamp="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
           body="$(cat <<EOF
-## Paper trade closure detected
+          ## Paper trade closure detected
+          
+          **Detected:** $timestamp
+          
+          **Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}
+          
+          ### Trades
+          
+          \`\`\`text
+          $closed_lines
+          \`\`\`
+          
+          The full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report.
+          
+          body="## Paper trade closure detected
 
-**Detected:** $timestamp
+          **Detected:** $timestamp
 
-**Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}
+          **Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}
 
-### Trades
+          ### Trades
 
-\`\`\`text
-$closed_lines
-\`\`\`
+          \`\`\`text
+          $closed_lines
+          \`\`\`
 
-The full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report.
-EOF
-)"
+          The full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report."
 
           gh issue comment "$issue_url" --body "$body"
 
