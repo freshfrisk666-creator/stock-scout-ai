@@ -74,34 +74,22 @@ jobs:
           closed_lines="$(grep '^CLOSED ' intraday_monitor.log || true)"
           timestamp="$(date -u '+%Y-%m-%d %H:%M:%S UTC')"
 
-          body="$(cat <<EOF
+                    body="$(cat <<EOF
           ## Paper trade closure detected
-          
+
           **Detected:** $timestamp
-          
+
           **Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}
-          
+
           ### Trades
-          
+
           \`\`\`text
           $closed_lines
           \`\`\`
-          
+
           The full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report.
-          
-          body="## Paper trade closure detected
-
-          **Detected:** $timestamp
-
-          **Closed this cycle:** ${{ steps.monitor.outputs.closed_count }}
-
-          ### Trades
-
-          \`\`\`text
-          $closed_lines
-          \`\`\`
-
-          The full signal snapshot remains stored in SQLite and is preserved for Trade Analysis / Performance Report."
+          EOF
+          )"
 
           gh issue comment "$issue_url" --body "$body"
 
