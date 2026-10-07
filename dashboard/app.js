@@ -142,20 +142,31 @@ function render() {
   ).textContent =
     `${(state.closed || []).length} posizioni chiuse`;
 
+  // ---------------------------------------------------------
+  // OPEN TABLE
+  // ---------------------------------------------------------
+
   const openTableBody =
-    document.querySelector(
-      "#openTable tbody"
-    );
+    document.querySelector("#openTable tbody");
 
   if (state.open && state.open.length) {
     openTableBody.innerHTML = state.open
       .map(
         (position, index) => `
-          <tr data-index="${index}">
+          <tr data-open-index="${index}">
             <td>${position.rank}</td>
-            <td class="ticker">${position.ticker}</td>
-            <td>${num(position.entry_price)}</td>
-            <td>${num(position.mark_price)}</td>
+
+            <td class="ticker">
+              ${position.ticker}
+            </td>
+
+            <td>
+              ${num(position.entry_price)}
+            </td>
+
+            <td>
+              ${num(position.mark_price)}
+            </td>
 
             <td class="${cls(position.unrealized_pnl)}">
               ${money(position.unrealized_pnl)}
@@ -169,9 +180,17 @@ function render() {
               ${num(position.current_r)}R
             </td>
 
-            <td>${num(position.stop)}</td>
-            <td>${num(position.target)}</td>
-            <td>${num(position.holding_days, 1)}</td>
+            <td>
+              ${num(position.stop)}
+            </td>
+
+            <td>
+              ${num(position.target)}
+            </td>
+
+            <td>
+              ${num(position.holding_days, 1)}
+            </td>
 
             <td class="state ${
               Number(position.current_r) < 0
@@ -200,36 +219,35 @@ function render() {
 
   openTableBody
     .querySelectorAll(
-      "tr[data-index]"
+      "tr[data-open-index]"
     )
     .forEach((row) => {
       row.addEventListener("click", () => {
         const index =
-          Number(row.dataset.index);
+          Number(row.dataset.openIndex);
 
         const position =
           state.open[index];
 
         if (position) {
-          showDetail(position);
+          showOpenDetail(position);
         }
       });
     });
 
-  const closedTableBody =
-    document.querySelector(
-      "#closedTable tbody"
-    );
+  // ---------------------------------------------------------
+  // CLOSED TABLE
+  // ---------------------------------------------------------
 
-  if (
-    state.closed &&
-    state.closed.length
-  ) {
+  const closedTableBody =
+    document.querySelector("#closedTable tbody");
+
+  if (state.closed && state.closed.length) {
     closedTableBody.innerHTML =
       state.closed
         .map(
-          (position) => `
-            <tr>
+          (position, index) => `
+            <tr data-closed-index="${index}">
               <td class="ticker">
                 ${position.ticker}
               </td>
@@ -271,6 +289,24 @@ function render() {
     `;
   }
 
+  closedTableBody
+    .querySelectorAll(
+      "tr[data-closed-index]"
+    )
+    .forEach((row) => {
+      row.addEventListener("click", () => {
+        const index =
+          Number(row.dataset.closedIndex);
+
+        const position =
+          state.closed[index];
+
+        if (position) {
+          showClosedDetail(position);
+        }
+      });
+    });
+
   document.getElementById(
     "updatedAt"
   ).textContent =
@@ -284,10 +320,93 @@ function render() {
   );
 }
 
-function showDetail(position) {
-  if (!position) return;
+function buildSignalMetrics(signal) {
+  return [
+    [
+      "Technical score",
+      num(signal.technical_score),
+    ],
+    [
+      "Trend",
+      num(signal.trend_score),
+    ],
+    [
+      "Momentum",
+      num(signal.momentum_score),
+    ],
+    [
+      "RSI",
+      num(signal.rsi_score),
+    ],
+    [
+      "Volume",
+      num(signal.volume_score),
+    ],
+    [
+      "Breakout",
+      num(signal.breakout_score),
+    ],
+    [
+      "Risk / Reward",
+      num(signal.risk_reward),
+    ],
+  ];
+}
 
-  const signal = position.signal || {};
+function buildSignalBox(signal) {
+  return `
+    <div class="signal-box">
+      <h3>
+        Snapshot del segnale di ingresso
+      </h3>
+
+      ${Object.entries(signal)
+        .map(
+          ([key, value]) => `
+            <span
+              style="
+                display:inline-block;
+                margin:3px 10px 3px 0;
+                color:var(--muted);
+                font-size:12px
+              "
+            >
+              ${key}:
+              <b style="color:var(--text)">
+                ${value ?? "\u2014"}
+              </b>
+            </span>
+          `
+        )
+        .join("")}
+    </div>
+  `;
+}
+
+function renderDetail(metrics, signal) {
+  document.getElementById(
+    "detail"
+  ).innerHTML = `
+    <div class="detail-grid">
+      ${metrics
+        .map(
+          ([label, value]) => `
+            <div class="metric">
+              <span>${label}</span>
+              <strong>${value ?? "\u2014"}</strong>
+            </div>
+          `
+        )
+        .join("")}
+    </div>
+
+    ${buildSignalBox(signal)}
+  `;
+}
+
+function showOpenDetail(position) {
+  const signal =
+    position.signal || {};
 
   const metrics = [
     ["Ticker", position.ticker],
@@ -351,84 +470,77 @@ function showDetail(position) {
       num(position.holding_days, 1),
     ],
 
-    [
-      "Technical score",
-      num(signal.technical_score),
-    ],
-
-    [
-      "Trend",
-      num(signal.trend_score),
-    ],
-
-    [
-      "Momentum",
-      num(signal.momentum_score),
-    ],
-
-    [
-      "RSI",
-      num(signal.rsi_score),
-    ],
-
-    [
-      "Volume",
-      num(signal.volume_score),
-    ],
-
-    [
-      "Breakout",
-      num(signal.breakout_score),
-    ],
-
-    [
-      "Risk / Reward",
-      num(signal.risk_reward),
-    ],
+    ...buildSignalMetrics(signal),
   ];
 
-  document.getElementById(
-    "detail"
-  ).innerHTML = `
-    <div class="detail-grid">
-      ${metrics
-        .map(
-          ([label, value]) => `
-            <div class="metric">
-              <span>${label}</span>
-              <strong>${value ?? "\u2014"}</strong>
-            </div>
-          `
-        )
-        .join("")}
-    </div>
+  renderDetail(metrics, signal);
+}
 
-    <div class="signal-box">
-      <h3>
-        Snapshot del segnale di ingresso
-      </h3>
+function showClosedDetail(position) {
+  const signal =
+    position.signal || {};
 
-      ${Object.entries(signal)
-        .map(
-          ([key, value]) => `
-            <span
-              style="
-                display:inline-block;
-                margin:3px 10px 3px 0;
-                color:var(--muted);
-                font-size:12px
-              "
-            >
-              ${key}:
-              <b style="color:var(--text)">
-                ${value ?? "\u2014"}
-              </b>
-            </span>
-          `
-        )
-        .join("")}
-    </div>
-  `;
+  const metrics = [
+    ["Ticker", position.ticker],
+
+    [
+      "Strategy",
+      position.strategy_type,
+    ],
+
+    [
+      "Horizon",
+      position.planned_horizon_sessions != null
+        ? `${position.planned_horizon_sessions} sessioni`
+        : "\u2014",
+    ],
+
+    [
+      "Rank ingresso",
+      position.rank != null
+        ? num(position.rank, 0)
+        : "\u2014",
+    ],
+
+    [
+      "Data ingresso",
+      formatDate(position.entry_date),
+    ],
+
+    [
+      "Entry",
+      num(position.entry_price),
+    ],
+
+    [
+      "Exit",
+      num(position.exit_price),
+    ],
+
+    [
+      "P&L realizzato",
+      money(position.realized_pnl),
+    ],
+
+    [
+      "P&L %",
+      pct(position.realized_return),
+    ],
+
+    [
+      "Motivo",
+      position.close_reason || "\u2014",
+    ],
+
+    [
+      "Data uscita",
+      formatDate(position.exit_date),
+    ],
+
+    ...buildSignalMetrics(signal),
+  ];
+
+  renderDetail(metrics, signal);
 }
 
 async function load() {
@@ -480,14 +592,13 @@ async function load() {
     );
   } finally {
     isLoading = false;
+
     setRefreshButton(false);
   }
 }
 
 const refreshButton =
-  document.getElementById(
-    "refreshBtn"
-  );
+  document.getElementById("refreshBtn");
 
 if (refreshButton) {
   refreshButton.addEventListener(
@@ -500,6 +611,9 @@ if (refreshButton) {
 
 load();
 
-setInterval(() => {
-  load();
-}, 60000);
+setInterval(
+  () => {
+    load();
+  },
+  60000
+);

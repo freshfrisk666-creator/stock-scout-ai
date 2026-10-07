@@ -37,19 +37,7 @@ def clean(v):
 
 def signal(raw):
     """
-    Extract the technical values actually stored in signal_snapshot.
-
-    The technical engine stores:
-      technical_score
-      trend_score
-      momentum_score
-      rsi_score
-      volume_score
-      breakout_score
-      risk_reward
-
-    The dashboard exposes them with the same names so no information
-    is lost between SQLite and the frontend.
+    Extract the technical values stored in signal_snapshot.
     """
     if not raw:
         return {}
@@ -167,6 +155,10 @@ def main():
 
     price_data = prices(tickers)
 
+    # ---------------------------------------------------------
+    # OPEN POSITIONS
+    # ---------------------------------------------------------
+
     opens = []
 
     for _, row in open_positions.iterrows():
@@ -253,34 +245,66 @@ def main():
             }
         )
 
+    # ---------------------------------------------------------
+    # CLOSED POSITIONS
+    # ---------------------------------------------------------
+
     closed = []
 
-    for _, row in closed_positions.sort_values(
-        "exit_date",
-        ascending=False,
-    ).iterrows():
+    if not closed_positions.empty:
+        closed_positions = closed_positions.sort_values(
+            "exit_date",
+            ascending=False,
+        )
+
+    for _, row in closed_positions.iterrows():
         entry = float(row.entry_price)
 
         exit_price = clean(row.exit_price)
         realized_pnl = clean(row.realized_pnl)
 
+        realized_return = None
+
+        if (
+            exit_price is not None
+            and entry != 0
+        ):
+            realized_return = (
+                float(exit_price) - entry
+            ) / entry
+
         closed.append(
             {
                 "id": int(row.id),
+                "rank": clean(row.get("rank")),
                 "ticker": str(row.ticker),
                 "entry_date": str(row.entry_date),
                 "entry_price": entry,
                 "exit_date": clean(row.exit_date),
                 "exit_price": exit_price,
                 "realized_pnl": realized_pnl,
-                "realized_return": (
-                    (float(exit_price) - entry) / entry
-                    if exit_price is not None and entry
-                    else None
-                ),
+                "realized_return": realized_return,
                 "close_reason": clean(row.close_reason),
+                "strategy_type": (
+                    row.get("strategy_type")
+                    or "SWING"
+                ),
+                "planned_horizon_sessions": (
+                    int(row.get("planned_horizon_sessions"))
+                    if pd.notna(
+                        row.get("planned_horizon_sessions")
+                    )
+                    else 20
+                ),
+                "signal": signal(
+                    row.get("signal_snapshot")
+                ),
             }
         )
+
+    # ---------------------------------------------------------
+    # PORTFOLIO SUMMARY
+    # ---------------------------------------------------------
 
     cash = (
         float(portfolio_state.iloc[0].cash)
@@ -289,7 +313,8 @@ def main():
     )
 
     market_value = sum(
-        position["mark_price"] * position["shares"]
+        position["mark_price"]
+        * position["shares"]
         for position in opens
     )
 
@@ -317,6 +342,7 @@ def main():
         ).isoformat(),
 
         "price_source": "Yahoo Finance",
+
         "price_interval": "1m",
 
         "latest_price_at": (
@@ -336,6 +362,7 @@ def main():
         },
 
         "open": opens,
+
         "closed": closed,
     }
 
