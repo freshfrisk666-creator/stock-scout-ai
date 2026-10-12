@@ -280,6 +280,8 @@ def main():
                 "ticker": str(row.ticker),
                 "entry_date": str(row.entry_date),
                 "entry_price": entry,
+                "shares": int(row.shares),
+                "notional": float(row.notional),
                 "exit_date": clean(row.exit_date),
                 "exit_price": exit_price,
                 "realized_pnl": realized_pnl,
