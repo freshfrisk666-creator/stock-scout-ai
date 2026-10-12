@@ -1,1 +1,539 @@
-:root{--bg:#0b1020;--panel:#121a2b;--panel2:#172238;--text:#eef3ff;--muted:#93a4c3;--line:#273550;--green:#35d07f;--red:#ff6675;--blue:#6ea8ff}*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--text);font-family:Inter,system-ui,-apple-system,"Segoe UI",sans-serif}.topbar{padding:28px max(20px,calc((100vw - 1400px)/2));border-bottom:1px solid var(--line);display:flex;justify-content:space-between;align-items:center;gap:20px;background:#0e1526}.eyebrow{font-size:12px;letter-spacing:.18em;color:var(--blue);font-weight:800}h1{margin:5px 0;font-size:30px}h2{margin:0;font-size:19px}.subtitle,.panel-head p{margin:5px 0 0;color:var(--muted);font-size:13px}.header-actions{display:flex;align-items:center;gap:10px}button{border:1px solid var(--line);background:var(--panel2);color:var(--text);padding:9px 13px;border-radius:9px;cursor:pointer;font-weight:700}.pill{font-size:12px;padding:7px 10px;border-radius:999px;background:var(--panel2);color:var(--muted)}.container{max-width:1400px;margin:auto;padding:24px 20px 45px}.cards{display:grid;grid-template-columns:repeat(6,minmax(150px,1fr));gap:12px;margin-bottom:18px}.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:16px}.card .label{color:var(--muted);font-size:12px}.card .value{font-size:22px;font-weight:800;margin-top:7px}.positive{color:var(--green)!important}.negative{color:var(--red)!important}.neutral{color:var(--text)!important}.panel{background:var(--panel);border:1px solid var(--line);border-radius:12px;margin-bottom:18px;overflow:hidden}.panel-head{padding:17px 18px;border-bottom:1px solid var(--line)}.table-wrap{overflow:auto}table{width:100%;border-collapse:collapse;min-width:950px}th,td{padding:11px 12px;border-bottom:1px solid var(--line);text-align:right;white-space:nowrap;font-size:13px}th{color:var(--muted);font-size:11px;text-transform:uppercase;letter-spacing:.04em;background:#10182a}th:first-child,td:first-child,th:nth-child(2),td:nth-child(2){text-align:left}tbody tr{cursor:pointer}tbody tr:hover{background:#18243a}.ticker{font-weight:800;color:var(--blue)}.state{font-weight:800}.detail{padding:18px}.detail.empty{color:var(--muted)}.detail-grid{display:grid;grid-template-columns:repeat(4,minmax(150px,1fr));gap:10px}.metric{background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:12px}.metric span{display:block;color:var(--muted);font-size:11px;margin-bottom:5px}.metric strong{font-size:15px}.signal-box{margin-top:14px;padding:14px;background:#0e1628;border:1px solid var(--line);border-radius:9px}.signal-box h3{margin:0 0 10px;font-size:14px}footer{display:flex;justify-content:space-between;color:var(--muted);font-size:11px;padding:5px}@media(max-width:1050px){.cards{grid-template-columns:repeat(3,1fr)}.detail-grid{grid-template-columns:repeat(2,1fr)}}@media(max-width:650px){.topbar{align-items:flex-start;flex-direction:column}.cards{grid-template-columns:repeat(2,1fr)}.container{padding:14px 10px 30px}h1{font-size:25px}}
+/* ============================================================
+   STOCK SCOUT AI — DASHBOARD
+   ============================================================ */
+
+:root {
+  --bg: #0b0f14;
+  --panel: #111720;
+  --panel-hover: #151d28;
+  --border: #26303d;
+  --text: #e7edf5;
+  --muted: #8d99a8;
+  --positive: #35c98b;
+  --negative: #ff647c;
+  --accent: #6ea8fe;
+  --white: #ffffff;
+}
+
+/* ============================================================
+   RESET
+   ============================================================ */
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family:
+    Inter,
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    Roboto,
+    Helvetica,
+    Arial,
+    sans-serif;
+  line-height: 1.5;
+}
+
+/* ============================================================
+   TOP BAR
+   ============================================================ */
+
+.topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+
+  padding: 24px 32px;
+
+  border-bottom: 1px solid var(--border);
+  background: var(--panel);
+}
+
+.topbar h1 {
+  margin: 0;
+
+  font-size: 26px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.topbar p {
+  margin: 4px 0 0;
+
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* ============================================================
+   STATUS
+   ============================================================ */
+
+.status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  color: var(--muted);
+  font-size: 13px;
+  white-space: nowrap;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+
+  border-radius: 50%;
+  background: var(--positive);
+
+  display: inline-block;
+}
+
+.status-dot.offline {
+  background: var(--negative);
+}
+
+/* ============================================================
+   MAIN CONTAINER
+   ============================================================ */
+
+.container {
+  width: min(1600px, calc(100% - 40px));
+
+  margin: 0 auto;
+  padding: 28px 0 40px;
+}
+
+/* ============================================================
+   SUMMARY CARDS
+   ============================================================ */
+
+.summary-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit, minmax(180px, 1fr));
+
+  gap: 14px;
+
+  margin-bottom: 24px;
+}
+
+.card {
+  padding: 18px;
+
+  background: var(--panel);
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.card-label {
+  margin-bottom: 8px;
+
+  color: var(--muted);
+
+  font-size: 12px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.card-value {
+  color: var(--text);
+
+  font-size: 23px;
+  font-weight: 700;
+
+  white-space: nowrap;
+}
+
+.card-value.positive {
+  color: var(--positive);
+}
+
+.card-value.negative {
+  color: var(--negative);
+}
+
+/* ============================================================
+   PANELS
+   ============================================================ */
+
+.panel {
+  margin-bottom: 24px;
+
+  background: var(--panel);
+
+  border: 1px solid var(--border);
+  border-radius: 10px;
+
+  overflow: hidden;
+}
+
+.panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 18px 20px;
+
+  border-bottom: 1px solid var(--border);
+}
+
+.panel-header h2 {
+  margin: 0;
+
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.panel-header p {
+  margin: 3px 0 0;
+
+  color: var(--muted);
+  font-size: 12px;
+}
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+
+.table-wrap {
+  width: 100%;
+
+  overflow-x: auto;
+  overflow-y: hidden;
+
+  -webkit-overflow-scrolling: touch;
+}
+
+table {
+  width: 100%;
+
+  /*
+   * Increased because the dashboard now contains:
+   * - Shares
+   * - Invested capital
+   */
+  min-width: 1250px;
+
+  border-collapse: collapse;
+
+  font-size: 13px;
+}
+
+thead {
+  background: rgba(255, 255, 255, 0.02);
+}
+
+th {
+  padding: 12px 14px;
+
+  color: var(--muted);
+
+  font-size: 11px;
+  font-weight: 700;
+
+  text-align: left;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  border-bottom: 1px solid var(--border);
+
+  white-space: nowrap;
+}
+
+td {
+  padding: 13px 14px;
+
+  border-bottom: 1px solid var(--border);
+
+  white-space: nowrap;
+}
+
+tbody tr:last-child td {
+  border-bottom: 0;
+}
+
+.position-row {
+  cursor: pointer;
+
+  transition:
+    background-color 0.15s ease;
+}
+
+.position-row:hover {
+  background: var(--panel-hover);
+}
+
+/* ============================================================
+   TABLE NUMBERS
+   ============================================================ */
+
+td strong {
+  font-weight: 700;
+}
+
+td.positive {
+  color: var(--positive);
+  font-weight: 600;
+}
+
+td.negative {
+  color: var(--negative);
+  font-weight: 600;
+}
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+
+  padding: 4px 8px;
+
+  border-radius: 999px;
+
+  font-size: 10px;
+  font-weight: 700;
+
+  letter-spacing: 0.05em;
+}
+
+.badge.open {
+  color: var(--positive);
+
+  background: rgba(53, 201, 139, 0.10);
+
+  border: 1px solid rgba(53, 201, 139, 0.25);
+}
+
+/* ============================================================
+   EMPTY STATES
+   ============================================================ */
+
+.empty {
+  padding: 30px 20px;
+
+  color: var(--muted);
+
+  text-align: center;
+}
+
+/* ============================================================
+   DETAIL
+   ============================================================ */
+
+.detail-empty {
+  padding: 28px 20px;
+
+  color: var(--muted);
+
+  text-align: center;
+}
+
+.detail-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit, minmax(180px, 1fr));
+
+  gap: 1px;
+
+  background: var(--border);
+}
+
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+
+  min-height: 72px;
+
+  padding: 14px 16px;
+
+  background: var(--panel);
+}
+
+.detail-item span {
+  color: var(--muted);
+
+  font-size: 11px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.detail-item strong {
+  color: var(--text);
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.detail-item strong.positive {
+  color: var(--positive);
+}
+
+.detail-item strong.negative {
+  color: var(--negative);
+}
+
+/* ============================================================
+   DETAIL SECTION
+   ============================================================ */
+
+.detail-section {
+  padding: 20px;
+
+  border-top: 1px solid var(--border);
+}
+
+.detail-section h3 {
+  margin: 0 0 14px;
+
+  font-size: 14px;
+  font-weight: 700;
+}
+
+/* ============================================================
+   SIGNAL METRICS
+   ============================================================ */
+
+.signal-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(auto-fit, minmax(140px, 1fr));
+
+  gap: 10px;
+}
+
+.signal-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  padding: 12px;
+
+  background: rgba(255, 255, 255, 0.02);
+
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.signal-grid span {
+  color: var(--muted);
+
+  font-size: 10px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.signal-grid strong {
+  color: var(--text);
+
+  font-size: 15px;
+}
+
+/* ============================================================
+   FOOTER
+   ============================================================ */
+
+footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 20px;
+
+  width: min(1600px, calc(100% - 40px));
+
+  margin: 0 auto;
+  padding: 0 0 30px;
+
+  color: var(--muted);
+
+  font-size: 11px;
+}
+
+/* ============================================================
+   RESPONSIVE
+   ============================================================ */
+
+@media (max-width: 900px) {
+
+  .topbar {
+    padding: 20px;
+  }
+
+  .container {
+    width: calc(100% - 24px);
+
+    padding-top: 20px;
+  }
+
+  .summary-grid {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+
+  .panel-header {
+    padding: 16px;
+  }
+
+  footer {
+    width: calc(100% - 24px);
+
+    padding-bottom: 24px;
+  }
+}
+
+@media (max-width: 600px) {
+
+  .topbar {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .status {
+    align-self: flex-start;
+  }
+
+  .summary-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .card-value {
+    font-size: 21px;
+  }
+
+  .container {
+    width: calc(100% - 16px);
+  }
+
+  footer {
+    width: calc(100% - 16px);
+
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+  }
+}

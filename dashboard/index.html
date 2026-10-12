@@ -1,1 +1,160 @@
-<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Stock Scout AI — Portfolio</title><link rel="stylesheet" href="style.css"></head><body><header class="topbar"><div><div class="eyebrow">STOCK SCOUT AI</div><h1>Paper Portfolio</h1><p class="subtitle">Monitoraggio automatico delle posizioni</p></div><div class="header-actions"><span id="status" class="pill">Caricamento…</span><button id="refreshBtn">↻ Aggiorna</button></div></header><main class="container"><section class="cards" id="summaryCards"></section><section class="panel"><div class="panel-head"><h2>Posizioni aperte</h2><p id="openMeta">—</p></div><div class="table-wrap"><table id="openTable"><thead><tr><th>#</th><th>Ticker</th><th>Entry</th><th>Prezzo</th><th>P&amp;L</th><th>P&amp;L %</th><th>R</th><th>Stop</th><th>Target</th><th>Giorni</th><th>Stato</th></tr></thead><tbody></tbody></table></div></section><section class="panel"><div class="panel-head"><h2>Dettaglio segnali</h2><p>Seleziona una posizione per vedere i dati del segnale di ingresso.</p></div><div id="detail" class="detail empty">Nessuna posizione selezionata.</div></section><section class="panel"><div class="panel-head"><h2>Storico operazioni</h2><p id="closedMeta">—</p></div><div class="table-wrap"><table id="closedTable"><thead><tr><th>Ticker</th><th>Ingresso</th><th>Uscita</th><th>P&amp;L</th><th>P&amp;L %</th><th>Motivo</th><th>Data</th></tr></thead><tbody></tbody></table></div></section><footer><span>Stock Scout AI • Paper Trading • SWING</span><span id="updatedAt">Ultimo aggiornamento: —</span></footer></main><script src="app.js"></script></body></html>
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Stock Scout AI — Paper Portfolio</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+  <header class="topbar">
+    <div>
+      <h1>Stock Scout AI</h1>
+      <p>Paper Portfolio Dashboard</p>
+    </div>
+
+    <div class="status">
+      <span id="statusDot" class="status-dot"></span>
+      <span id="statusText">Caricamento...</span>
+    </div>
+  </header>
+
+  <main class="container">
+
+    <!-- SUMMARY -->
+    <section class="summary-grid">
+
+      <div class="card">
+        <div class="card-label">Equity</div>
+        <div id="equity" class="card-value">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Cash</div>
+        <div id="cash" class="card-value">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Open P&amp;L</div>
+        <div id="unrealizedPnl" class="card-value">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Realized P&amp;L</div>
+        <div id="realizedPnl" class="card-value">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Total P&amp;L</div>
+        <div id="totalPnl" class="card-value">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Open Positions</div>
+        <div id="openPositions" class="card-value">—</div>
+      </div>
+
+      <div class="card">
+        <div class="card-label">Closed Trades</div>
+        <div id="closedPositions" class="card-value">—</div>
+      </div>
+
+    </section>
+
+    <!-- OPEN POSITIONS -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Posizioni aperte</h2>
+          <p>Current paper portfolio</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>#</th>
+              <th>Ticker</th>
+              <th>Azioni</th>
+              <th>Capitale investito</th>
+              <th>Entry</th>
+              <th>Prezzo</th>
+              <th>P&amp;L</th>
+              <th>P&amp;L %</th>
+              <th>R</th>
+              <th>Stop</th>
+              <th>Target</th>
+              <th>Giorni</th>
+              <th>Stato</th>
+            </tr>
+          </thead>
+
+          <tbody id="openTableBody">
+            <tr>
+              <td colspan="13" class="empty">Caricamento...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- CLOSED POSITIONS -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Trade chiusi</h2>
+          <p>Realized paper trades</p>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Ticker</th>
+              <th>Azioni</th>
+              <th>Capitale investito</th>
+              <th>Ingresso</th>
+              <th>Uscita</th>
+              <th>P&amp;L</th>
+              <th>P&amp;L %</th>
+              <th>Motivo</th>
+              <th>Data</th>
+            </tr>
+          </thead>
+
+          <tbody id="closedTableBody">
+            <tr>
+              <td colspan="9" class="empty">Caricamento...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <!-- DETAIL -->
+    <section class="panel">
+      <div class="panel-header">
+        <div>
+          <h2>Dettaglio posizione</h2>
+          <p>Seleziona una posizione per visualizzare i dettagli</p>
+        </div>
+      </div>
+
+      <div id="detailContent" class="detail-empty">
+        Nessuna posizione selezionata.
+      </div>
+    </section>
+
+  </main>
+
+  <footer>
+    <span>Stock Scout AI</span>
+    <span>Paper Trading · S&amp;P 500</span>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>

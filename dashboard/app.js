@@ -1,619 +1,636 @@
-const money = (v) => {
-  if (v == null) return "\u2014";
+const DATA_URL = "data.json";
 
-  return new Intl.NumberFormat("it-IT", {
-    style: "currency",
-    currency: "USD",
-    maximumFractionDigits: 2,
-  }).format(v);
-};
+let dashboardData = null;
+let selectedPosition = null;
 
-const num = (v, d = 2) => {
-  if (v == null || Number.isNaN(Number(v))) {
-    return "\u2014";
+// ------------------------------------------------------------
+// Formatting helpers
+// ------------------------------------------------------------
+
+function money(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
   }
 
-  return Number(v).toLocaleString("it-IT", {
-    maximumFractionDigits: d,
+  return Number(value).toLocaleString("it-IT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }) + " $";
+}
+
+function num(value, decimals = 2) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
+
+  return Number(value).toLocaleString("it-IT", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals
   });
-};
+}
 
-const pct = (v) => {
-  if (v == null) return "\u2014";
+function pct(value) {
+  if (value === null || value === undefined || Number.isNaN(Number(value))) {
+    return "—";
+  }
 
-  return (
-    (Number(v) * 100).toLocaleString("it-IT", {
-      maximumFractionDigits: 2,
-    }) + "%"
-  );
-};
+  return Number(value).toLocaleString("it-IT", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  }) + "%";
+}
 
-const cls = (v) => {
-  if (Number(v) > 0) return "positive";
-  if (Number(v) < 0) return "negative";
-  return "neutral";
-};
+function cls(value) {
+  const n = Number(value);
 
-let state = null;
-let isLoading = false;
+  if (Number.isNaN(n)) {
+    return "";
+  }
 
-function card(label, value, colorClass = "neutral") {
-  return `
-    <div class="card">
-      <div class="label">${label}</div>
-      <div class="value ${colorClass}">${value}</div>
-    </div>
-  `;
+  if (n > 0) {
+    return "positive";
+  }
+
+  if (n < 0) {
+    return "negative";
+  }
+
+  return "";
 }
 
 function formatDate(value) {
-  if (!value) return "\u2014";
+  if (!value) {
+    return "—";
+  }
 
   const date = new Date(value);
 
   if (Number.isNaN(date.getTime())) {
-    return String(value);
+    return value;
   }
 
-  return date.toLocaleString("it-IT", {
-    dateStyle: "short",
-    timeStyle: "medium",
-  });
+  return date.toLocaleDateString("it-IT");
 }
 
-function setStatus(text, color = null) {
-  const status = document.getElementById("status");
+// ------------------------------------------------------------
+// Status
+// ------------------------------------------------------------
 
-  if (!status) return;
+function setStatus(text, online = true) {
+  const statusText = document.getElementById("statusText");
+  const statusDot = document.getElementById("statusDot");
 
-  status.textContent = text;
+  if (statusText) {
+    statusText.textContent = text;
+  }
 
-  if (color) {
-    status.style.color = color;
+  if (statusDot) {
+    statusDot.classList.toggle("offline", !online);
   }
 }
 
-function setRefreshButton(loading) {
-  const button = document.getElementById("refreshBtn");
+// ------------------------------------------------------------
+// Summary
+// ------------------------------------------------------------
 
-  if (!button) return;
+function renderSummary(data) {
+  const summary = data.summary || {};
 
-  button.disabled = loading;
+  const equity = Number(summary.equity || 0);
+  const cash = Number(summary.cash || 0);
+  const unrealizedPnl = Number(summary.unrealized_pnl || 0);
+  const realizedPnl = Number(summary.realized_pnl || 0);
 
-  button.textContent = loading
-    ? "\u21bb Aggiornamento..."
-    : "\u21bb Aggiorna";
+  const totalPnl = unrealizedPnl + realizedPnl;
+
+  document.getElementById("equity").textContent = money(equity);
+  document.getElementById("cash").textContent = money(cash);
+
+  const unrealizedElement = document.getElementById("unrealizedPnl");
+  const realizedElement = document.getElementById("realizedPnl");
+  const totalElement = document.getElementById("totalPnl");
+
+  unrealizedElement.textContent = money(unrealizedPnl);
+  realizedElement.textContent = money(realizedPnl);
+  totalElement.textContent = money(totalPnl);
+
+  unrealizedElement.className = `card-value ${cls(unrealizedPnl)}`;
+  realizedElement.className = `card-value ${cls(realizedPnl)}`;
+  totalElement.className = `card-value ${cls(totalPnl)}`;
+
+  document.getElementById("openPositions").textContent =
+    num(summary.open_positions || 0, 0);
+
+  document.getElementById("closedPositions").textContent =
+    num(summary.closed_positions || 0, 0);
 }
 
-function render() {
-  if (!state) return;
+// ------------------------------------------------------------
+// Signal metrics
+// ------------------------------------------------------------
 
-  const summary = state.summary || {};
+function buildSignalMetrics(position) {
+  const signal = position.signal || {};
 
-  const realizedPnl =
-    Number(summary.realized_pnl || 0);
+  return `
+    <div class="signal-grid">
 
-  const unrealizedPnl =
-    Number(summary.unrealized_pnl || 0);
+      <div>
+        <span>Technical Score</span>
+        <strong>${num(signal.technical_score)}</strong>
+      </div>
 
-  const totalPnl =
-    realizedPnl + unrealizedPnl;
+      <div>
+        <span>Trend</span>
+        <strong>${num(signal.trend_score)}</strong>
+      </div>
 
-  document.getElementById(
-    "summaryCards"
-  ).innerHTML = [
-    card("Equity", money(summary.equity)),
-    card("Cash", money(summary.cash)),
-    card(
-      "P&L aperto",
-      money(unrealizedPnl),
-      cls(unrealizedPnl)
-    ),
-    card(
-      "P&L realizzato",
-      money(realizedPnl),
-      cls(realizedPnl)
-    ),
-    card(
-      "P&L totale",
-      money(totalPnl),
-      cls(totalPnl)
-    ),
-    card(
-      "Posizioni aperte",
-      num(summary.open_positions, 0)
-    ),
-  ].join("");
+      <div>
+        <span>Momentum</span>
+        <strong>${num(signal.momentum_score)}</strong>
+      </div>
 
-  const latest =
-    state.latest_price_at
-      ? formatDate(state.latest_price_at)
-      : "\u2014";
+      <div>
+        <span>RSI</span>
+        <strong>${num(signal.rsi_score)}</strong>
+      </div>
 
-  document.getElementById(
-    "openMeta"
-  ).textContent =
-    `${summary.open_positions || 0} posizioni \u2022 prezzi ${
-      state.price_interval || "\u2014"
-    } \u2022 ultimo dato: ${latest}`;
+      <div>
+        <span>Volume</span>
+        <strong>${num(signal.volume_score)}</strong>
+      </div>
 
-  document.getElementById(
-    "closedMeta"
-  ).textContent =
-    `${(state.closed || []).length} posizioni chiuse`;
+      <div>
+        <span>Breakout</span>
+        <strong>${num(signal.breakout_score)}</strong>
+      </div>
 
-  // ---------------------------------------------------------
-  // OPEN TABLE
-  // ---------------------------------------------------------
+      <div>
+        <span>Risk / Reward</span>
+        <strong>${num(signal.risk_reward)}</strong>
+      </div>
 
-  const openTableBody =
-    document.querySelector("#openTable tbody");
+    </div>
+  `;
+}
 
-  if (state.open && state.open.length) {
-    openTableBody.innerHTML = state.open
-      .map(
-        (position, index) => `
-          <tr data-open-index="${index}">
-            <td>${position.rank}</td>
+// ------------------------------------------------------------
+// Open positions
+// ------------------------------------------------------------
 
-            <td class="ticker">
-              ${position.ticker}
-            </td>
+function renderOpenPositions(positions) {
+  const tbody = document.getElementById("openTableBody");
 
-            <td>
-              ${num(position.entry_price)}
-            </td>
-
-            <td>
-              ${num(position.mark_price)}
-            </td>
-
-            <td class="${cls(position.unrealized_pnl)}">
-              ${money(position.unrealized_pnl)}
-            </td>
-
-            <td class="${cls(position.unrealized_return)}">
-              ${pct(position.unrealized_return)}
-            </td>
-
-            <td class="${cls(position.current_r)}">
-              ${num(position.current_r)}R
-            </td>
-
-            <td>
-              ${num(position.stop)}
-            </td>
-
-            <td>
-              ${num(position.target)}
-            </td>
-
-            <td>
-              ${num(position.holding_days, 1)}
-            </td>
-
-            <td class="state ${
-              Number(position.current_r) < 0
-                ? "negative"
-                : "positive"
-            }">
-              ${
-                Number(position.current_r) < 0
-                  ? "WATCH"
-                  : "OPEN"
-              }
-            </td>
-          </tr>
-        `
-      )
-      .join("");
-  } else {
-    openTableBody.innerHTML = `
+  if (!positions || positions.length === 0) {
+    tbody.innerHTML = `
       <tr>
-        <td colspan="11">
+        <td colspan="13" class="empty">
           Nessuna posizione aperta.
         </td>
       </tr>
     `;
+
+    return;
   }
 
-  openTableBody
-    .querySelectorAll(
-      "tr[data-open-index]"
-    )
-    .forEach((row) => {
-      row.addEventListener("click", () => {
-        const index =
-          Number(row.dataset.openIndex);
+  tbody.innerHTML = positions.map((position, index) => {
 
-        const position =
-          state.open[index];
+    const pnl = Number(position.unrealized_pnl || 0);
+    const pnlPct = Number(position.unrealized_return || 0);
+    const currentR = Number(position.current_r || 0);
 
-        if (position) {
-          showOpenDetail(position);
-        }
-      });
+    return `
+      <tr
+        class="position-row"
+        data-id="${position.id}"
+      >
+
+        <td>${position.rank ?? index + 1}</td>
+
+        <td>
+          <strong>${position.ticker || "—"}</strong>
+        </td>
+
+        <td>
+          ${num(position.shares, 0)}
+        </td>
+
+        <td>
+          ${money(position.notional)}
+        </td>
+
+        <td>
+          ${money(position.entry_price)}
+        </td>
+
+        <td>
+          ${money(position.mark_price)}
+        </td>
+
+        <td class="${cls(pnl)}">
+          ${money(pnl)}
+        </td>
+
+        <td class="${cls(pnlPct)}">
+          ${pct(pnlPct)}
+        </td>
+
+        <td class="${cls(currentR)}">
+          ${num(currentR)}
+        </td>
+
+        <td>
+          ${money(position.stop)}
+        </td>
+
+        <td>
+          ${money(position.target)}
+        </td>
+
+        <td>
+          ${num(position.holding_days, 0)}
+        </td>
+
+        <td>
+          <span class="badge open">OPEN</span>
+        </td>
+
+      </tr>
+    `;
+  }).join("");
+
+  tbody.querySelectorAll(".position-row").forEach(row => {
+    row.addEventListener("click", () => {
+      const id = Number(row.dataset.id);
+
+      const position = positions.find(
+        item => Number(item.id) === id
+      );
+
+      if (position) {
+        selectedPosition = position;
+        renderOpenDetail(position);
+      }
     });
+  });
+}
 
-  // ---------------------------------------------------------
-  // CLOSED TABLE
-  // ---------------------------------------------------------
+// ------------------------------------------------------------
+// Closed positions
+// ------------------------------------------------------------
 
-  const closedTableBody =
-    document.querySelector("#closedTable tbody");
+function renderClosedPositions(positions) {
+  const tbody = document.getElementById("closedTableBody");
 
-  if (state.closed && state.closed.length) {
-    closedTableBody.innerHTML =
-      state.closed
-        .map(
-          (position, index) => `
-            <tr data-closed-index="${index}">
-              <td class="ticker">
-                ${position.ticker}
-              </td>
-
-              <td>
-                ${num(position.entry_price)}
-              </td>
-
-              <td>
-                ${num(position.exit_price)}
-              </td>
-
-              <td class="${cls(position.realized_pnl)}">
-                ${money(position.realized_pnl)}
-              </td>
-
-              <td class="${cls(position.realized_return)}">
-                ${pct(position.realized_return)}
-              </td>
-
-              <td>
-                ${position.close_reason || "\u2014"}
-              </td>
-
-              <td>
-                ${formatDate(position.exit_date)}
-              </td>
-            </tr>
-          `
-        )
-        .join("");
-  } else {
-    closedTableBody.innerHTML = `
+  if (!positions || positions.length === 0) {
+    tbody.innerHTML = `
       <tr>
-        <td colspan="7">
-          Nessuna posizione chiusa.
+        <td colspan="9" class="empty">
+          Nessun trade chiuso.
         </td>
       </tr>
     `;
+
+    return;
   }
 
-  closedTableBody
-    .querySelectorAll(
-      "tr[data-closed-index]"
-    )
-    .forEach((row) => {
-      row.addEventListener("click", () => {
-        const index =
-          Number(row.dataset.closedIndex);
+  tbody.innerHTML = positions.map(position => {
 
-        const position =
-          state.closed[index];
+    const pnl = Number(position.realized_pnl || 0);
+    const pnlPct = Number(position.realized_return || 0);
 
-        if (position) {
-          showClosedDetail(position);
-        }
-      });
+    return `
+      <tr
+        class="position-row"
+        data-id="${position.id}"
+      >
+
+        <td>
+          <strong>${position.ticker || "—"}</strong>
+        </td>
+
+        <td>
+          ${num(position.shares, 0)}
+        </td>
+
+        <td>
+          ${money(position.notional)}
+        </td>
+
+        <td>
+          ${money(position.entry_price)}
+        </td>
+
+        <td>
+          ${money(position.exit_price)}
+        </td>
+
+        <td class="${cls(pnl)}">
+          ${money(pnl)}
+        </td>
+
+        <td class="${cls(pnlPct)}">
+          ${pct(pnlPct)}
+        </td>
+
+        <td>
+          ${position.close_reason || "—"}
+        </td>
+
+        <td>
+          ${formatDate(position.exit_date)}
+        </td>
+
+      </tr>
+    `;
+  }).join("");
+
+  tbody.querySelectorAll(".position-row").forEach(row => {
+    row.addEventListener("click", () => {
+      const id = Number(row.dataset.id);
+
+      const position = positions.find(
+        item => Number(item.id) === id
+      );
+
+      if (position) {
+        selectedPosition = position;
+        renderClosedDetail(position);
+      }
     });
-
-  document.getElementById(
-    "updatedAt"
-  ).textContent =
-    `Dashboard: ${formatDate(
-      state.generated_at
-    )} \u2022 Prezzi: ${latest}`;
-
-  setStatus(
-    "\u25cf DATI AGGIORNATI",
-    "var(--green)"
-  );
+  });
 }
 
-function buildSignalMetrics(signal) {
-  return [
-    [
-      "Technical score",
-      num(signal.technical_score),
-    ],
-    [
-      "Trend",
-      num(signal.trend_score),
-    ],
-    [
-      "Momentum",
-      num(signal.momentum_score),
-    ],
-    [
-      "RSI",
-      num(signal.rsi_score),
-    ],
-    [
-      "Volume",
-      num(signal.volume_score),
-    ],
-    [
-      "Breakout",
-      num(signal.breakout_score),
-    ],
-    [
-      "Risk / Reward",
-      num(signal.risk_reward),
-    ],
-  ];
-}
+// ------------------------------------------------------------
+// Open detail
+// ------------------------------------------------------------
 
-function buildSignalBox(signal) {
-  return `
-    <div class="signal-box">
-      <h3>
-        Snapshot del segnale di ingresso
-      </h3>
+function renderOpenDetail(position) {
+  const container = document.getElementById("detailContent");
 
-      ${Object.entries(signal)
-        .map(
-          ([key, value]) => `
-            <span
-              style="
-                display:inline-block;
-                margin:3px 10px 3px 0;
-                color:var(--muted);
-                font-size:12px
-              "
-            >
-              ${key}:
-              <b style="color:var(--text)">
-                ${value ?? "\u2014"}
-              </b>
-            </span>
-          `
-        )
-        .join("")}
-    </div>
-  `;
-}
+  const pnl = Number(position.unrealized_pnl || 0);
+  const pnlPct = Number(position.unrealized_return || 0);
+  const currentR = Number(position.current_r || 0);
 
-function renderDetail(metrics, signal) {
-  document.getElementById(
-    "detail"
-  ).innerHTML = `
+  container.innerHTML = `
     <div class="detail-grid">
-      ${metrics
-        .map(
-          ([label, value]) => `
-            <div class="metric">
-              <span>${label}</span>
-              <strong>${value ?? "\u2014"}</strong>
-            </div>
-          `
-        )
-        .join("")}
+
+      <div class="detail-item">
+        <span>Ticker</span>
+        <strong>${position.ticker || "—"}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Azioni</span>
+        <strong>${num(position.shares, 0)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Capitale investito</span>
+        <strong>${money(position.notional)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Strategia</span>
+        <strong>${position.strategy_type || "—"}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Orizzonte</span>
+        <strong>
+          ${position.planned_horizon_sessions ?? "—"} sessioni
+        </strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Ingresso</span>
+        <strong>${formatDate(position.entry_date)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Entry</span>
+        <strong>${money(position.entry_price)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Prezzo attuale</span>
+        <strong>${money(position.mark_price)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Prezzo aggiornato</span>
+        <strong>${position.price_updated_at || "—"}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>P&amp;L</span>
+        <strong class="${cls(pnl)}">
+          ${money(pnl)}
+        </strong>
+      </div>
+
+      <div class="detail-item">
+        <span>P&amp;L %</span>
+        <strong class="${cls(pnlPct)}">
+          ${pct(pnlPct)}
+        </strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Current R</span>
+        <strong class="${cls(currentR)}">
+          ${num(currentR)}
+        </strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Stop</span>
+        <strong>${money(position.stop)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Target</span>
+        <strong>${money(position.target)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Giorni</span>
+        <strong>${num(position.holding_days, 0)}</strong>
+      </div>
+
     </div>
 
-    ${buildSignalBox(signal)}
+    <div class="detail-section">
+
+      <h3>Signal Metrics</h3>
+
+      ${buildSignalMetrics(position)}
+
+    </div>
   `;
 }
 
-function showOpenDetail(position) {
-  const signal =
-    position.signal || {};
+// ------------------------------------------------------------
+// Closed detail
+// ------------------------------------------------------------
 
-  const metrics = [
-    ["Ticker", position.ticker],
+function renderClosedDetail(position) {
+  const container = document.getElementById("detailContent");
 
-    [
-      "Strategy",
-      position.strategy_type,
-    ],
+  const pnl = Number(position.realized_pnl || 0);
+  const pnlPct = Number(position.realized_return || 0);
 
-    [
-      "Horizon",
-      position.planned_horizon_sessions != null
-        ? `${position.planned_horizon_sessions} sessioni`
-        : "\u2014",
-    ],
+  container.innerHTML = `
+    <div class="detail-grid">
 
-    [
-      "Entry",
-      num(position.entry_price),
-    ],
+      <div class="detail-item">
+        <span>Ticker</span>
+        <strong>${position.ticker || "—"}</strong>
+      </div>
 
-    [
-      "Prezzo",
-      num(position.mark_price),
-    ],
+      <div class="detail-item">
+        <span>Azioni</span>
+        <strong>${num(position.shares, 0)}</strong>
+      </div>
 
-    [
-      "Prezzo dato",
-      position.price_updated_at
-        ? formatDate(position.price_updated_at)
-        : "\u2014",
-    ],
+      <div class="detail-item">
+        <span>Capitale investito</span>
+        <strong>${money(position.notional)}</strong>
+      </div>
 
-    [
-      "P&L",
-      money(position.unrealized_pnl),
-    ],
+      <div class="detail-item">
+        <span>Strategia</span>
+        <strong>${position.strategy_type || "—"}</strong>
+      </div>
 
-    [
-      "P&L %",
-      pct(position.unrealized_return),
-    ],
+      <div class="detail-item">
+        <span>Orizzonte</span>
+        <strong>
+          ${position.planned_horizon_sessions ?? "—"} sessioni
+        </strong>
+      </div>
 
-    [
-      "R attuale",
-      `${num(position.current_r)}R`,
-    ],
+      <div class="detail-item">
+        <span>Rank</span>
+        <strong>${position.rank ?? "—"}</strong>
+      </div>
 
-    [
-      "Stop",
-      num(position.stop),
-    ],
+      <div class="detail-item">
+        <span>Data ingresso</span>
+        <strong>${formatDate(position.entry_date)}</strong>
+      </div>
 
-    [
-      "Target",
-      num(position.target),
-    ],
+      <div class="detail-item">
+        <span>Entry</span>
+        <strong>${money(position.entry_price)}</strong>
+      </div>
 
-    [
-      "Giorni",
-      num(position.holding_days, 1),
-    ],
+      <div class="detail-item">
+        <span>Exit</span>
+        <strong>${money(position.exit_price)}</strong>
+      </div>
 
-    ...buildSignalMetrics(signal),
-  ];
+      <div class="detail-item">
+        <span>Realized P&amp;L</span>
+        <strong class="${cls(pnl)}">
+          ${money(pnl)}
+        </strong>
+      </div>
 
-  renderDetail(metrics, signal);
+      <div class="detail-item">
+        <span>P&amp;L %</span>
+        <strong class="${cls(pnlPct)}">
+          ${pct(pnlPct)}
+        </strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Motivo chiusura</span>
+        <strong>${position.close_reason || "—"}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Data uscita</span>
+        <strong>${formatDate(position.exit_date)}</strong>
+      </div>
+
+    </div>
+
+    <div class="detail-section">
+
+      <h3>Signal Metrics</h3>
+
+      ${buildSignalMetrics(position)}
+
+    </div>
+  `;
 }
 
-function showClosedDetail(position) {
-  const signal =
-    position.signal || {};
+// ------------------------------------------------------------
+// Load dashboard data
+// ------------------------------------------------------------
 
-  const metrics = [
-    ["Ticker", position.ticker],
-
-    [
-      "Strategy",
-      position.strategy_type,
-    ],
-
-    [
-      "Horizon",
-      position.planned_horizon_sessions != null
-        ? `${position.planned_horizon_sessions} sessioni`
-        : "\u2014",
-    ],
-
-    [
-      "Rank ingresso",
-      position.rank != null
-        ? num(position.rank, 0)
-        : "\u2014",
-    ],
-
-    [
-      "Data ingresso",
-      formatDate(position.entry_date),
-    ],
-
-    [
-      "Entry",
-      num(position.entry_price),
-    ],
-
-    [
-      "Exit",
-      num(position.exit_price),
-    ],
-
-    [
-      "P&L realizzato",
-      money(position.realized_pnl),
-    ],
-
-    [
-      "P&L %",
-      pct(position.realized_return),
-    ],
-
-    [
-      "Motivo",
-      position.close_reason || "\u2014",
-    ],
-
-    [
-      "Data uscita",
-      formatDate(position.exit_date),
-    ],
-
-    ...buildSignalMetrics(signal),
-  ];
-
-  renderDetail(metrics, signal);
-}
-
-async function load() {
-  if (isLoading) return;
-
-  isLoading = true;
-
-  setRefreshButton(true);
-  setStatus("Caricamento...");
-
+async function loadDashboard() {
   try {
+    setStatus("Aggiornamento...", true);
+
     const response = await fetch(
-      `data.json?ts=${Date.now()}`,
+      `${DATA_URL}?t=${Date.now()}`,
       {
-        cache: "no-store",
+        cache: "no-store"
       }
     );
 
     if (!response.ok) {
       throw new Error(
-        `data.json non disponibile: HTTP ${response.status}`
+        `HTTP ${response.status}`
       );
     }
 
-    const data =
-      await response.json();
+    const data = await response.json();
 
-    if (
-      !data ||
-      typeof data !== "object"
-    ) {
-      throw new Error(
-        "data.json non contiene dati validi"
-      );
-    }
+    dashboardData = data;
 
-    state = data;
+    renderSummary(data);
+    renderOpenPositions(data.open || []);
+    renderClosedPositions(data.closed || []);
 
-    render();
+    setStatus("Online", true);
+
   } catch (error) {
+
     console.error(
       "Errore caricamento dashboard:",
       error
     );
 
-    setStatus(
-      "Errore aggiornamento",
-      "var(--red)"
-    );
-  } finally {
-    isLoading = false;
+    setStatus("Errore dati", false);
 
-    setRefreshButton(false);
+    document.getElementById("openTableBody").innerHTML = `
+      <tr>
+        <td colspan="13" class="empty">
+          Impossibile caricare i dati.
+        </td>
+      </tr>
+    `;
+
+    document.getElementById("closedTableBody").innerHTML = `
+      <tr>
+        <td colspan="9" class="empty">
+          Impossibile caricare i dati.
+        </td>
+      </tr>
+    `;
   }
 }
 
-const refreshButton =
-  document.getElementById("refreshBtn");
+// ------------------------------------------------------------
+// Auto refresh
+// ------------------------------------------------------------
 
-if (refreshButton) {
-  refreshButton.addEventListener(
-    "click",
-    () => {
-      load();
-    }
-  );
-}
-
-load();
+loadDashboard();
 
 setInterval(
-  () => {
-    load();
-  },
-  60000
+  loadDashboard,
+  60 * 1000
 );
