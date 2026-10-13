@@ -21,141 +21,51 @@
   </header>
 
   <main class="container">
-
     <section class="summary-grid">
-      <div class="card">
-        <div class="card-label">Equity</div>
-        <div id="equity" class="card-value">—</div>
-      </div>
-
-      <div class="card">
-        <div class="card-label">Cash</div>
-        <div id="cash" class="card-value">—</div>
-      </div>
-
-      <div class="card">
-        <div class="card-label">Open P&amp;L</div>
-        <div id="unrealizedPnl" class="card-value">—</div>
-      </div>
-
-      <div class="card">
-        <div class="card-label">Realized P&amp;L</div>
-        <div id="realizedPnl" class="card-value">—</div>
-      </div>
-
-      <div class="card">
-        <div class="card-label">Total P&amp;L</div>
-        <div id="totalPnl" class="card-value">—</div>
-      </div>
-
-      <div class="card">
-        <div class="card-label">Open Positions</div>
-        <div id="openPositions" class="card-value">—</div>
-      </div>
-
-      <div class="card">
-        <div class="card-label">Closed Trades</div>
-        <div id="closedPositions" class="card-value">—</div>
-      </div>
+      <div class="card"><div class="card-label">Equity</div><div id="equity" class="card-value">—</div></div>
+      <div class="card"><div class="card-label">Cash</div><div id="cash" class="card-value">—</div></div>
+      <div class="card"><div class="card-label">Open P&amp;L</div><div id="unrealizedPnl" class="card-value">—</div></div>
+      <div class="card"><div class="card-label">Realized P&amp;L</div><div id="realizedPnl" class="card-value">—</div></div>
+      <div class="card"><div class="card-label">Total P&amp;L</div><div id="totalPnl" class="card-value">—</div></div>
+      <div class="card"><div class="card-label">Open Positions</div><div id="openPositions" class="card-value">—</div></div>
+      <div class="card"><div class="card-label">Closed Trades</div><div id="closedPositions" class="card-value">—</div></div>
     </section>
 
     <section class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>Posizioni aperte</h2>
-          <p>Current paper portfolio</p>
-        </div>
-      </div>
-
+      <div class="panel-header"><div><h2>Posizioni aperte</h2><p>Current paper portfolio</p></div></div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>#</th>
-              <th>Ticker</th>
-              <th>Azioni</th>
-              <th>Capitale investito</th>
-              <th>Entry</th>
-              <th>Prezzo</th>
-              <th>P&amp;L</th>
-              <th>P&amp;L %</th>
-              <th>R</th>
-              <th>Stop</th>
-              <th>Target</th>
-              <th>Giorni</th>
-              <th>Stato</th>
-              <th>Chart</th>
-            </tr>
-          </thead>
-
-          <tbody id="openTableBody">
-            <tr>
-              <td colspan="14" class="empty">Caricamento...</td>
-            </tr>
-          </tbody>
+          <thead><tr>
+            <th>#</th><th>Ticker</th><th>Azioni</th><th>Capitale investito</th><th>Entry</th><th>Prezzo</th><th>P&amp;L</th><th>P&amp;L %</th><th>R</th><th>Stop</th><th>Target</th><th>Giorni</th><th>Stato</th><th>Chart</th>
+          </tr></thead>
+          <tbody id="openTableBody"><tr><td colspan="14" class="empty">Caricamento...</td></tr></tbody>
         </table>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>Trade chiusi</h2>
-          <p>Realized paper trades</p>
-        </div>
-      </div>
-
+      <div class="panel-header"><div><h2>Trade chiusi</h2><p>Realized paper trades</p></div></div>
       <div class="table-wrap">
         <table>
-          <thead>
-            <tr>
-              <th>Ticker</th>
-              <th>Azioni</th>
-              <th>Capitale investito</th>
-              <th>Ingresso</th>
-              <th>Uscita</th>
-              <th>P&amp;L</th>
-              <th>P&amp;L %</th>
-              <th>Motivo</th>
-              <th>Data</th>
-              <th>Chart</th>
-            </tr>
-          </thead>
-
-          <tbody id="closedTableBody">
-            <tr>
-              <td colspan="10" class="empty">Caricamento...</td>
-            </tr>
-          </tbody>
+          <thead><tr>
+            <th>Ticker</th><th>Azioni</th><th>Capitale investito</th><th>Ingresso</th><th>Uscita</th><th>P&amp;L</th><th>P&amp;L %</th><th>Motivo</th><th>Data</th><th>Chart</th>
+          </tr></thead>
+          <tbody id="closedTableBody"><tr><td colspan="10" class="empty">Caricamento...</td></tr></tbody>
         </table>
       </div>
     </section>
 
     <section class="panel">
-      <div class="panel-header">
-        <div>
-          <h2>Dettaglio posizione</h2>
-          <p>Seleziona una posizione per visualizzare i dettagli</p>
-        </div>
-      </div>
-
-      <div id="detailContent" class="detail-empty">
-        Nessuna posizione selezionata.
-      </div>
+      <div class="panel-header"><div><h2>Dettaglio posizione</h2><p>Seleziona una posizione per visualizzare i dettagli</p></div></div>
+      <div id="detailContent" class="detail-empty">Nessuna posizione selezionata.</div>
     </section>
-
   </main>
 
   <div id="tradeChartModal" class="chart-modal" hidden>
     <div class="chart-modal-backdrop" onclick="closeTradeChart()"></div>
-
     <div class="chart-dialog" role="dialog" aria-modal="true" aria-labelledby="tradeChartTitle">
       <div class="chart-dialog-header">
-        <div>
-          <h2 id="tradeChartTitle">Trade Chart</h2>
-          <p id="tradeChartSubtitle">Caricamento...</p>
-        </div>
-
+        <div><h2 id="tradeChartTitle">Trade Chart</h2><p id="tradeChartSubtitle">Caricamento...</p></div>
         <div class="chart-dialog-actions">
           <button type="button" class="chart-action secondary" onclick="refreshTradeChart()">↻ Aggiorna</button>
           <button type="button" class="chart-action" onclick="downloadTradeChartPng()">↓ PNG</button>
@@ -163,26 +73,14 @@
           <button type="button" class="chart-action close" onclick="closeTradeChart()">×</button>
         </div>
       </div>
-
       <div id="tradeChartStatus" class="trade-chart-status">Caricamento...</div>
-
       <div id="tradeChartCanvas" class="trade-chart-canvas"></div>
-
       <div id="tradeChartContext" class="trade-chart-context"></div>
-
-      <div class="trade-chart-attribution">
-        Charts powered by
-        <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">
-          TradingView Lightweight Charts
-        </a>.
-      </div>
+      <div class="trade-chart-attribution">Charts powered by <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">TradingView Lightweight Charts</a>.</div>
     </div>
   </div>
 
-  <footer>
-    <span>Stock Scout AI</span>
-    <span>Paper Trading · S&amp;P 500</span>
-  </footer>
+  <footer><span>Stock Scout AI</span><span>Paper Trading · S&amp;P 500</span></footer>
 
   <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
   <script src="trade_chart.js"></script>

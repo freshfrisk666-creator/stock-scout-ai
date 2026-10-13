@@ -184,7 +184,7 @@ function renderOpenPositions(positions) {
   if (!positions || positions.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="13" class="empty">
+        <td colspan="14" class="empty">
           Nessuna posizione aperta.
         </td>
       </tr>
@@ -198,6 +198,7 @@ function renderOpenPositions(positions) {
     const pnl = Number(position.unrealized_pnl || 0);
     const pnlPct = Number(position.unrealized_return || 0);
     const currentR = Number(position.current_r || 0);
+    const watch = currentR < 0;
 
     return `
       <tr
@@ -252,7 +253,7 @@ function renderOpenPositions(positions) {
         </td>
 
         <td>
-          <span class="badge open">OPEN</span>
+          <span class="badge ${watch ? "watch" : "open"}">${watch ? "WATCH" : "OPEN"}</span>
         </td>
 
       </tr>
@@ -285,7 +286,7 @@ function renderClosedPositions(positions) {
   if (!positions || positions.length === 0) {
     tbody.innerHTML = `
       <tr>
-        <td colspan="9" class="empty">
+        <td colspan="10" class="empty">
           Nessun trade chiuso.
         </td>
       </tr>
@@ -371,6 +372,7 @@ function renderOpenDetail(position) {
   const pnl = Number(position.unrealized_pnl || 0);
   const pnlPct = Number(position.unrealized_return || 0);
   const currentR = Number(position.current_r || 0);
+  const watch = currentR < 0;
 
   container.innerHTML = `
     <div class="detail-grid">
@@ -388,6 +390,11 @@ function renderOpenDetail(position) {
       <div class="detail-item">
         <span>Capitale investito</span>
         <strong>${money(position.notional)}</strong>
+      </div>
+
+      <div class="detail-item">
+        <span>Stato</span>
+        <strong class="${watch ? "negative" : "positive"}">${watch ? "WATCH" : "OPEN"}</strong>
       </div>
 
       <div class="detail-item">
@@ -608,7 +615,7 @@ async function loadDashboard() {
 
     document.getElementById("openTableBody").innerHTML = `
       <tr>
-        <td colspan="13" class="empty">
+        <td colspan="14" class="empty">
           Impossibile caricare i dati.
         </td>
       </tr>
@@ -616,7 +623,7 @@ async function loadDashboard() {
 
     document.getElementById("closedTableBody").innerHTML = `
       <tr>
-        <td colspan="9" class="empty">
+        <td colspan="10" class="empty">
           Impossibile caricare i dati.
         </td>
       </tr>

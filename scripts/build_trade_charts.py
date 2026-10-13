@@ -234,6 +234,13 @@ def clustered_level_ranges(levels: list[float]) -> list[dict]:
 
 
 def context_zones(frame: pd.DataFrame, entry_price: float) -> list[dict]:
+    """Build the most relevant support/resistance zones for the trade review.
+
+    Support is intentionally guaranteed when the historical window contains a
+    plausible price structure below entry. Pivot clusters are preferred; when
+    no cluster exists, a recent structural low is used as a fallback so the
+    SUPPORT band does not silently disappear from the chart.
+    """
     recent = frame.tail(160)
 
     supports = clustered_level_ranges(pivot_levels(recent, "support"))
@@ -249,20 +256,15 @@ def context_zones(frame: pd.DataFrame, entry_price: float) -> list[dict]:
         key=lambda zone: zone["mid"] - entry_price,
     )[:1]
 
-    result = []
-
     entry_atr = None
     if "atr14" in frame.columns:
         atr_series = frame["atr14"].dropna()
         if not atr_series.empty:
             entry_atr = float(atr_series.iloc[-1])
 
-    # A single pivot can produce low == high, which would otherwise render as
-    # a 1-pixel line. Give the zone a small visual thickness while preserving
-    # the actual min/max range whenever the cluster contains multiple pivots.
     visual_pad = max(
-        (entry_atr * 0.35) if entry_atr and math.isfinite(entry_atr) else 0.0,
-        float(entry_price) * 0.0025,
+        (entry_atr * 0.45) if entry_atr and math.isfinite(entry_atr) else 0.0,
+        float(entry_price) * 0.0035,
     )
 
     def visual_bounds(zone):
@@ -274,15 +276,43 @@ def context_zones(frame: pd.DataFrame, entry_price: float) -> list[dict]:
             high = mid + (visual_pad / 2.0)
         return round(low, 6), round(high, 6)
 
-    for zone in below:
-        low, high = visual_bounds(zone)
-        result.append({
+    # Fallback support: use the highest recent low that is still meaningfully
+    # below entry. This is intentionally a visual/context fallback, not a new
+    # trading signal.
+    support_fallback = None
+    if not below and not recent.empty:
+        eligible_lows = recent.loc[recent["low"] <= entry_price * 0.995, "low"].dropna()
+        if not eligible_lows.empty:
+            support_fallback = float(eligible_lows.max())
+
+    if below:
+        support_zone = below[0]
+        low, high = visual_bounds(support_zone)
+        support_payload = {
             "kind": "support",
             "low": low,
             "high": high,
-            "mid": round(zone["mid"], 6),
-            "touches": int(zone["touches"]),
-        })
+            "mid": round(float(support_zone["mid"]), 6),
+            "touches": int(support_zone["touches"]),
+            "label": f"SUPPORT · {int(support_zone['touches'])} touch" + ("" if support_zone["touches"] == 1 else "es"),
+        }
+    elif support_fallback is not None:
+        pad = max(visual_pad, float(entry_price) * 0.004)
+        support_payload = {
+            "kind": "support",
+            "low": round(support_fallback - pad * 0.35, 6),
+            "high": round(support_fallback + pad * 0.65, 6),
+            "mid": round(support_fallback, 6),
+            "touches": 0,
+            "label": "SUPPORT · recent low",
+        }
+    else:
+        support_payload = None
+
+    result = []
+
+    if support_payload is not None:
+        result.append(support_payload)
 
     for zone in above:
         low, high = visual_bounds(zone)
@@ -290,8 +320,9 @@ def context_zones(frame: pd.DataFrame, entry_price: float) -> list[dict]:
             "kind": "resistance",
             "low": low,
             "high": high,
-            "mid": round(zone["mid"], 6),
+            "mid": round(float(zone["mid"]), 6),
             "touches": int(zone["touches"]),
+            "label": f"RESISTANCE · {int(zone['touches'])} touch" + ("" if zone["touches"] == 1 else "es"),
         })
 
     return result

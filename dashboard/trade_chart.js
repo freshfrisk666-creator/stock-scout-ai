@@ -6,6 +6,8 @@ let tradeChartState = {
   positionId: null,
   candles: null,
   rsiMarkers: null,
+  smaSeries: {},
+  smaVisibility: { sma20: false, sma50: false, sma200: false },
 };
 
 function chartMoney(value) {
@@ -65,10 +67,10 @@ function openTradeChart(positionId) {
   document.body.classList.add("modal-open");
   tradeChartState.positionId = Number(positionId);
   chartStatus("Caricamento del tracciato...");
-  fetchTradeData(positionId);
+  fetchTradeData(positionId, null);
 }
 
-async function fetchTradeData(positionId) {
+async function fetchTradeData(positionId, preserveRange = null) {
   try {
     const response = await fetch(
       TRADE_CHART_ROOT + "/" + encodeURIComponent(positionId) + ".json?t=" + Date.now(),
@@ -81,11 +83,13 @@ async function fetchTradeData(positionId) {
     tradeChartState.trade = trade;
     renderTradeHeader(trade);
     renderTradeContext(trade);
-    drawTradeChart(trade);
+    drawTradeChart(trade, preserveRange);
 
     chartStatus("Tracciato aggiornato: " + new Date().toLocaleString("it-IT"));
   } catch (error) {
-    destroyTradeChart();
+    // During a refresh, keep the existing chart (and its zoom) visible if the
+    // new dataset cannot be loaded. On first open there is no chart to preserve.
+    if (!tradeChartState.chart) destroyTradeChart();
     chartStatus("Errore caricamento chart: " + error.message, true);
   }
 }
@@ -156,7 +160,7 @@ function renderTradeContext(trade) {
     </div>
 
     <div class="trade-chart-note">
-      Il VIX è usato solo come contesto del mercato. Non viene disegnato nel chart e non modifica lo scoring. Le divergenze sono rilevate su prezzo + RSI14 e sono un'analisi diagnostica, non un segnale automatico.
+      Il VIX è usato solo come contesto del mercato. Non viene disegnato nel chart e non modifica lo scoring. Le divergenze sono rilevate su prezzo + RSI14 e sono un'analisi diagnostica, non un segnale automatico. La linea tratteggiata è una possibile traiettoria verso il target, non una previsione certa.
     </div>
   `;
 }
@@ -172,6 +176,7 @@ function destroyTradeChart() {
   }
   tradeChartState.candles = null;
   tradeChartState.rsiMarkers = null;
+  tradeChartState.smaSeries = {};
   const canvas = chartEl("tradeChartCanvas");
   if (canvas) canvas.innerHTML = "";
 }
@@ -249,12 +254,13 @@ class PriceZonePrimitive {
               ctx.lineWidth = zone.kind === "support" ? 1.5 : 1;
               ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, right - left - 1), Math.max(1, height - 1));
 
-              if (zone.label && right - left > 90 && height >= 16) {
+              if (zone.label && right - left > 90 && height >= 10) {
                 ctx.font = "600 11px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
                 ctx.fillStyle = style.text;
                 ctx.textAlign = "right";
                 ctx.textBaseline = "middle";
-                ctx.fillText(zone.label, right - 8, top + Math.min(height - 7, 15));
+                const labelY = top + Math.min(Math.max(height / 2, 10), height - 5);
+                ctx.fillText(zone.label, right - 8, labelY);
               }
               ctx.restore();
             }
@@ -321,7 +327,7 @@ function buildDivergenceSeries(chart, rsiSeries, divergences) {
       position,
       color,
       shape: "circle",
-      text: "D1",
+      text: bullish ? "B1" : "D1",
       size: 1,
     });
     markers.push({
@@ -336,10 +342,12 @@ function buildDivergenceSeries(chart, rsiSeries, divergences) {
     const line = chart.addSeries(window.LightweightCharts.LineSeries, {
       color,
       lineWidth: 2,
-      lineStyle: window.LightweightCharts.LineStyle.Dashed,
+      lineStyle: window.LightweightCharts.LineStyle.Solid,
       priceLineVisible: false,
       lastValueVisible: false,
+      crosshairMarkerVisible: false,
       title: bullish ? "Bullish divergence" : "Bearish divergence",
+      priceScaleId: "rsi",
     }, 1);
     line.setData([
       { time: divergence.start_time, value: Number(divergence.start_rsi) },
@@ -354,7 +362,127 @@ function buildDivergenceSeries(chart, rsiSeries, divergences) {
   return lineSeries;
 }
 
-function drawTradeChart(trade) {
+function ensureSmaControls() {
+  const actions = document.querySelector(".chart-dialog-actions");
+  if (!actions) return;
+
+  if (actions.querySelector("[data-sma-toggle]")) {
+    updateSmaButtons();
+    return;
+  }
+
+  [
+    ["sma20", "SMA20"],
+    ["sma50", "SMA50"],
+    ["sma200", "SMA200"],
+  ].forEach(([key, label]) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "chart-action indicator-toggle";
+    button.dataset.smaToggle = key;
+    button.textContent = label;
+    button.title = "Mostra / nascondi " + label;
+    button.addEventListener("click", () => toggleSma(key));
+    actions.insertBefore(button, actions.firstChild);
+  });
+
+  updateSmaButtons();
+}
+
+function updateSmaButtons() {
+  document.querySelectorAll("[data-sma-toggle]").forEach((button) => {
+    const key = button.dataset.smaToggle;
+    const active = Boolean(tradeChartState.smaVisibility[key]);
+    button.classList.toggle("active", active);
+    button.setAttribute("aria-pressed", active ? "true" : "false");
+  });
+}
+
+function toggleSma(key) {
+  tradeChartState.smaVisibility[key] = !tradeChartState.smaVisibility[key];
+  const series = tradeChartState.smaSeries[key];
+  if (series) {
+    series.applyOptions({ visible: tradeChartState.smaVisibility[key] });
+  }
+  updateSmaButtons();
+}
+
+
+function addTargetProjection(chart, trade, bars, LineSeries, LineStyle) {
+  if (!trade || trade.status === "CLOSED" || !Array.isArray(bars) || bars.length < 2) return;
+
+  const target = Number(trade.target);
+  const current = Number(bars[bars.length - 1]?.close);
+  if (!Number.isFinite(target) || !Number.isFinite(current)) return;
+
+  const distance = target - current;
+  if (Math.abs(distance) < Math.max(Math.abs(current) * 0.002, 0.01)) return;
+
+  // Estimate a modest horizon from the planned swing horizon and the number of
+  // sessions already elapsed. The path is deliberately a scenario, not a signal.
+  const entryTime = Number(trade.entry_time);
+  const elapsedSessions = Number.isFinite(entryTime)
+    ? bars.filter((bar) => Number(bar.time) > entryTime).length
+    : 0;
+  const plannedHorizon = Number(trade.planned_horizon_sessions) || 20;
+  const remainingSessions = Math.max(4, Math.min(20, plannedHorizon - elapsedSessions || 8));
+  const projectionPoints = Math.max(4, remainingSessions);
+
+  // Use the recent slope only as a small curvature bias, while forcing the
+  // projection to start at the latest realtime close and end exactly at target.
+  const recent = bars.slice(-12).map((bar) => Number(bar.close)).filter(Number.isFinite);
+  let slope = 0;
+  if (recent.length >= 3) {
+    const n = recent.length;
+    const xMean = (n - 1) / 2;
+    const yMean = recent.reduce((sum, value) => sum + value, 0) / n;
+    let numerator = 0;
+    let denominator = 0;
+    for (let i = 0; i < n; i += 1) {
+      numerator += (i - xMean) * (recent[i] - yMean);
+      denominator += (i - xMean) ** 2;
+    }
+    if (denominator > 0) slope = numerator / denominator;
+  }
+
+  const maxBias = Math.abs(distance) * 0.20;
+  const bias = Math.max(-maxBias, Math.min(maxBias, slope * projectionPoints * 0.25));
+  const points = [];
+  const startTime = Number(bars[bars.length - 1].time);
+  let cursor = new Date(startTime * 1000);
+
+  points.push({ time: startTime, value: current });
+
+  for (let step = 1; step <= projectionPoints; step += 1) {
+    cursor = new Date(cursor.getTime());
+    do {
+      cursor.setUTCDate(cursor.getUTCDate() + 1);
+    } while (cursor.getUTCDay() === 0 || cursor.getUTCDay() === 6);
+
+    const t = step / projectionPoints;
+    const eased = t * t * (3 - 2 * t); // smooth-step: starts gently, ends cleanly.
+    const curve = bias * Math.sin(Math.PI * t);
+    const value = current + (distance * eased) + curve;
+
+    points.push({
+      time: Math.floor(cursor.getTime() / 1000),
+      value,
+    });
+  }
+
+  const projection = chart.addSeries(LineSeries, {
+    color: "rgba(255, 255, 255, 0.78)",
+    lineWidth: 2,
+    lineStyle: LineStyle.Dashed,
+    priceLineVisible: false,
+    lastValueVisible: false,
+    crosshairMarkerVisible: false,
+    title: "Possible target projection",
+  });
+  projection.setData(points);
+}
+
+function drawTradeChart(trade, preserveRange = null) {
   destroyTradeChart();
 
   if (!window.LightweightCharts) {
@@ -374,6 +502,7 @@ function drawTradeChart(trade) {
   } = window.LightweightCharts;
 
   const container = chartEl("tradeChartCanvas");
+  ensureSmaControls();
 
   const chart = createChart(container, {
     autoSize: true,
@@ -418,10 +547,11 @@ function drawTradeChart(trade) {
     close: Number(bar.close),
   })));
 
+  tradeChartState.smaSeries = {};
   const maConfig = [
-    ["sma20", "SMA20", "rgba(240,195,106,0.60)", 1],
-    ["sma50", "SMA50", "rgba(110,168,254,0.52)", 1],
-    ["sma200", "SMA200", "rgba(169,120,214,0.42)", 1],
+    ["sma20", "SMA20", "rgba(240,195,106,0.68)", 1.5],
+    ["sma50", "SMA50", "rgba(110,168,254,0.60)", 1.5],
+    ["sma200", "SMA200", "rgba(169,120,214,0.52)", 1.5],
   ];
   maConfig.forEach(([key, title, color, width]) => {
     const line = chart.addSeries(LineSeries, {
@@ -430,21 +560,25 @@ function drawTradeChart(trade) {
       priceLineVisible: false,
       lastValueVisible: false,
       title,
+      visible: Boolean(tradeChartState.smaVisibility[key]),
     });
     line.setData(barSeriesData(trade.bars, key));
+    tradeChartState.smaSeries[key] = line;
   });
 
   // Trade-plan levels are intentionally dominant. The colored bands below make
   // the reward/risk structure immediately readable without hiding the candles.
-  addPriceLine(candles, trade.entry_price, "ENTRY", "#76b7ff", LineStyle.Solid, 4);
-  addPriceLine(candles, trade.stop, "STOP LOSS", "#ff4f6d", LineStyle.Solid, 4);
-  addPriceLine(candles, trade.target, "TARGET", "#2fe39a", LineStyle.Solid, 4);
+  addPriceLine(candles, trade.entry_price, "ENTRY", "#76b7ff", LineStyle.Solid, 2);
+  addPriceLine(candles, trade.stop, "STOP LOSS", "#ff4f6d", LineStyle.Solid, 2);
+  addPriceLine(candles, trade.target, "TARGET", "#2fe39a", LineStyle.Solid, 2);
 
   if (trade.exit_price !== null && trade.exit_price !== undefined) {
-    addPriceLine(candles, trade.exit_price, "EXIT", "#ffd166", LineStyle.Solid, 3);
+    addPriceLine(candles, trade.exit_price, "EXIT", "#ffd166", LineStyle.Solid, 2);
   }
 
   attachZonePrimitive(chart, candles, trade.zones || [], trade.bars, trade);
+
+  addTargetProjection(chart, trade, trade.bars, LineSeries, LineStyle);
 
   (trade.trendlines || []).forEach((trendline) => {
     const line = chart.addSeries(LineSeries, {
@@ -485,6 +619,14 @@ function drawTradeChart(trade) {
   buildDivergenceSeries(chart, rsi, trade.divergences || []);
 
   chart.timeScale().fitContent();
+  if (preserveRange && typeof preserveRange === "object") {
+    try {
+      chart.timeScale().setVisibleRange(preserveRange);
+    } catch (error) {
+      // If the refreshed dataset changed enough to invalidate the old time range,
+      // keep the freshly fitted view instead of resetting or breaking the chart.
+    }
+  }
 }
 
 function closeTradeChart() {
@@ -498,8 +640,18 @@ function closeTradeChart() {
 
 function refreshTradeChart() {
   if (tradeChartState.positionId === null) return;
+
+  let visibleRange = null;
+  if (tradeChartState.chart) {
+    try {
+      visibleRange = tradeChartState.chart.timeScale().getVisibleRange();
+    } catch (error) {
+      visibleRange = null;
+    }
+  }
+
   chartStatus("Aggiornamento del tracciato...");
-  fetchTradeData(tradeChartState.positionId);
+  fetchTradeData(tradeChartState.positionId, visibleRange);
 }
 
 function downloadTradeChartPng() {
