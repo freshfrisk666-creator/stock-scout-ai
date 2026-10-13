@@ -22,9 +22,7 @@
 
   <main class="container">
 
-    <!-- SUMMARY -->
     <section class="summary-grid">
-
       <div class="card">
         <div class="card-label">Equity</div>
         <div id="equity" class="card-value">—</div>
@@ -59,10 +57,8 @@
         <div class="card-label">Closed Trades</div>
         <div id="closedPositions" class="card-value">—</div>
       </div>
-
     </section>
 
-    <!-- OPEN POSITIONS -->
     <section class="panel">
       <div class="panel-header">
         <div>
@@ -88,19 +84,19 @@
               <th>Target</th>
               <th>Giorni</th>
               <th>Stato</th>
+              <th>Chart</th>
             </tr>
           </thead>
 
           <tbody id="openTableBody">
             <tr>
-              <td colspan="13" class="empty">Caricamento...</td>
+              <td colspan="14" class="empty">Caricamento...</td>
             </tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- CLOSED POSITIONS -->
     <section class="panel">
       <div class="panel-header">
         <div>
@@ -122,19 +118,19 @@
               <th>P&amp;L %</th>
               <th>Motivo</th>
               <th>Data</th>
+              <th>Chart</th>
             </tr>
           </thead>
 
           <tbody id="closedTableBody">
             <tr>
-              <td colspan="9" class="empty">Caricamento...</td>
+              <td colspan="10" class="empty">Caricamento...</td>
             </tr>
           </tbody>
         </table>
       </div>
     </section>
 
-    <!-- DETAIL -->
     <section class="panel">
       <div class="panel-header">
         <div>
@@ -150,11 +146,46 @@
 
   </main>
 
+  <div id="tradeChartModal" class="chart-modal" hidden>
+    <div class="chart-modal-backdrop" onclick="closeTradeChart()"></div>
+
+    <div class="chart-dialog" role="dialog" aria-modal="true" aria-labelledby="tradeChartTitle">
+      <div class="chart-dialog-header">
+        <div>
+          <h2 id="tradeChartTitle">Trade Chart</h2>
+          <p id="tradeChartSubtitle">Caricamento...</p>
+        </div>
+
+        <div class="chart-dialog-actions">
+          <button type="button" class="chart-action secondary" onclick="refreshTradeChart()">↻ Aggiorna</button>
+          <button type="button" class="chart-action" onclick="downloadTradeChartPng()">↓ PNG</button>
+          <button type="button" class="chart-action" onclick="downloadTradeChartCsv()">↓ CSV</button>
+          <button type="button" class="chart-action close" onclick="closeTradeChart()">×</button>
+        </div>
+      </div>
+
+      <div id="tradeChartStatus" class="trade-chart-status">Caricamento...</div>
+
+      <div id="tradeChartCanvas" class="trade-chart-canvas"></div>
+
+      <div id="tradeChartContext" class="trade-chart-context"></div>
+
+      <div class="trade-chart-attribution">
+        Charts powered by
+        <a href="https://www.tradingview.com/" target="_blank" rel="noopener noreferrer">
+          TradingView Lightweight Charts
+        </a>.
+      </div>
+    </div>
+  </div>
+
   <footer>
     <span>Stock Scout AI</span>
     <span>Paper Trading · S&amp;P 500</span>
   </footer>
 
+  <script src="https://unpkg.com/lightweight-charts@5.2.1/dist/lightweight-charts.standalone.production.js"></script>
+  <script src="trade_chart.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

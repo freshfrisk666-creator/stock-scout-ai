@@ -25,23 +25,32 @@ jobs:
         with:
           ref: main
           fetch-depth: 1
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
+
       - name: Install dashboard dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pandas yfinance
+
       - name: Build dashboard data
         run: python scripts/build_dashboard.py
+
+      - name: Build trade chart data
+        run: python scripts/build_trade_charts.py
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+
       - name: Upload dashboard
         uses: actions/upload-pages-artifact@v4
         with:
           path: dashboard
+
       - name: Deploy dashboard
         id: deployment
         uses: actions/deploy-pages@v4

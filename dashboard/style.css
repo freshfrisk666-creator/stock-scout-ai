@@ -15,10 +15,6 @@
   --white: #ffffff;
 }
 
-/* ============================================================
-   RESET
-   ============================================================ */
-
 * {
   box-sizing: border-box;
 }
@@ -45,25 +41,18 @@ body {
   line-height: 1.5;
 }
 
-/* ============================================================
-   TOP BAR
-   ============================================================ */
-
 .topbar {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-
   padding: 24px 32px;
-
   border-bottom: 1px solid var(--border);
   background: var(--panel);
 }
 
 .topbar h1 {
   margin: 0;
-
   font-size: 26px;
   font-weight: 700;
   letter-spacing: -0.02em;
@@ -71,20 +60,14 @@ body {
 
 .topbar p {
   margin: 4px 0 0;
-
   color: var(--muted);
   font-size: 14px;
 }
-
-/* ============================================================
-   STATUS
-   ============================================================ */
 
 .status {
   display: flex;
   align-items: center;
   gap: 8px;
-
   color: var(--muted);
   font-size: 13px;
   white-space: nowrap;
@@ -93,10 +76,8 @@ body {
 .status-dot {
   width: 9px;
   height: 9px;
-
   border-radius: 50%;
   background: var(--positive);
-
   display: inline-block;
 }
 
@@ -104,59 +85,39 @@ body {
   background: var(--negative);
 }
 
-/* ============================================================
-   MAIN CONTAINER
-   ============================================================ */
-
 .container {
   width: min(1600px, calc(100% - 40px));
-
   margin: 0 auto;
   padding: 28px 0 40px;
 }
 
-/* ============================================================
-   SUMMARY CARDS
-   ============================================================ */
-
 .summary-grid {
   display: grid;
-
-  grid-template-columns:
-    repeat(auto-fit, minmax(180px, 1fr));
-
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 14px;
-
   margin-bottom: 24px;
 }
 
 .card {
   padding: 18px;
-
   background: var(--panel);
-
   border: 1px solid var(--border);
   border-radius: 10px;
 }
 
 .card-label {
   margin-bottom: 8px;
-
   color: var(--muted);
-
   font-size: 12px;
   font-weight: 600;
-
   text-transform: uppercase;
   letter-spacing: 0.06em;
 }
 
 .card-value {
   color: var(--text);
-
   font-size: 23px;
   font-weight: 700;
-
   white-space: nowrap;
 }
 
@@ -168,18 +129,11 @@ body {
   color: var(--negative);
 }
 
-/* ============================================================
-   PANELS
-   ============================================================ */
-
 .panel {
   margin-bottom: 24px;
-
   background: var(--panel);
-
   border: 1px solid var(--border);
   border-radius: 10px;
-
   overflow: hidden;
 }
 
@@ -187,51 +141,33 @@ body {
   display: flex;
   justify-content: space-between;
   align-items: center;
-
   padding: 18px 20px;
-
   border-bottom: 1px solid var(--border);
 }
 
 .panel-header h2 {
   margin: 0;
-
   font-size: 17px;
   font-weight: 700;
 }
 
 .panel-header p {
   margin: 3px 0 0;
-
   color: var(--muted);
   font-size: 12px;
 }
 
-/* ============================================================
-   TABLES
-   ============================================================ */
-
 .table-wrap {
   width: 100%;
-
   overflow-x: auto;
   overflow-y: hidden;
-
   -webkit-overflow-scrolling: touch;
 }
 
 table {
   width: 100%;
-
-  /*
-   * Increased because the dashboard now contains:
-   * - Shares
-   * - Invested capital
-   */
-  min-width: 1250px;
-
+  min-width: 1400px;
   border-collapse: collapse;
-
   font-size: 13px;
 }
 
@@ -241,26 +177,19 @@ thead {
 
 th {
   padding: 12px 14px;
-
   color: var(--muted);
-
   font-size: 11px;
   font-weight: 700;
-
   text-align: left;
   text-transform: uppercase;
   letter-spacing: 0.04em;
-
   border-bottom: 1px solid var(--border);
-
   white-space: nowrap;
 }
 
 td {
   padding: 13px 14px;
-
   border-bottom: 1px solid var(--border);
-
   white-space: nowrap;
 }
 
@@ -270,18 +199,12 @@ tbody tr:last-child td {
 
 .position-row {
   cursor: pointer;
-
-  transition:
-    background-color 0.15s ease;
+  transition: background-color 0.15s ease;
 }
 
 .position-row:hover {
   background: var(--panel-hover);
 }
-
-/* ============================================================
-   TABLE NUMBERS
-   ============================================================ */
 
 td strong {
   font-weight: 700;
@@ -297,64 +220,38 @@ td.negative {
   font-weight: 600;
 }
 
-/* ============================================================
-   BADGES
-   ============================================================ */
-
 .badge {
   display: inline-flex;
   align-items: center;
-
   padding: 4px 8px;
-
   border-radius: 999px;
-
   font-size: 10px;
   font-weight: 700;
-
   letter-spacing: 0.05em;
 }
 
 .badge.open {
   color: var(--positive);
-
   background: rgba(53, 201, 139, 0.10);
-
   border: 1px solid rgba(53, 201, 139, 0.25);
 }
 
-/* ============================================================
-   EMPTY STATES
-   ============================================================ */
-
 .empty {
   padding: 30px 20px;
-
   color: var(--muted);
-
   text-align: center;
 }
 
-/* ============================================================
-   DETAIL
-   ============================================================ */
-
 .detail-empty {
   padding: 28px 20px;
-
   color: var(--muted);
-
   text-align: center;
 }
 
 .detail-grid {
   display: grid;
-
-  grid-template-columns:
-    repeat(auto-fit, minmax(180px, 1fr));
-
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
   gap: 1px;
-
   background: var(--border);
 }
 
@@ -362,27 +259,21 @@ td.negative {
   display: flex;
   flex-direction: column;
   gap: 5px;
-
   min-height: 72px;
-
   padding: 14px 16px;
-
   background: var(--panel);
 }
 
 .detail-item span {
   color: var(--muted);
-
   font-size: 11px;
   font-weight: 600;
-
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .detail-item strong {
   color: var(--text);
-
   font-size: 14px;
   font-weight: 700;
 }
@@ -395,33 +286,20 @@ td.negative {
   color: var(--negative);
 }
 
-/* ============================================================
-   DETAIL SECTION
-   ============================================================ */
-
 .detail-section {
   padding: 20px;
-
   border-top: 1px solid var(--border);
 }
 
 .detail-section h3 {
   margin: 0 0 14px;
-
   font-size: 14px;
   font-weight: 700;
 }
 
-/* ============================================================
-   SIGNAL METRICS
-   ============================================================ */
-
 .signal-grid {
   display: grid;
-
-  grid-template-columns:
-    repeat(auto-fit, minmax(140px, 1fr));
-
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 10px;
 }
 
@@ -429,84 +307,312 @@ td.negative {
   display: flex;
   flex-direction: column;
   gap: 4px;
-
   padding: 12px;
-
   background: rgba(255, 255, 255, 0.02);
-
   border: 1px solid var(--border);
   border-radius: 8px;
 }
 
 .signal-grid span {
   color: var(--muted);
-
   font-size: 10px;
   font-weight: 600;
-
   text-transform: uppercase;
   letter-spacing: 0.04em;
 }
 
 .signal-grid strong {
   color: var(--text);
-
   font-size: 15px;
 }
-
-/* ============================================================
-   FOOTER
-   ============================================================ */
 
 footer {
   display: flex;
   justify-content: space-between;
   align-items: center;
   gap: 20px;
-
   width: min(1600px, calc(100% - 40px));
-
   margin: 0 auto;
   padding: 0 0 30px;
-
   color: var(--muted);
-
   font-size: 11px;
 }
 
 /* ============================================================
-   RESPONSIVE
+   TRADE CHART
    ============================================================ */
 
-@media (max-width: 900px) {
+.chart-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 10px;
+  color: var(--text);
+  background: rgba(110, 168, 254, 0.08);
+  border: 1px solid rgba(110, 168, 254, 0.30);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
 
+.chart-btn:hover {
+  background: rgba(110, 168, 254, 0.16);
+  border-color: rgba(110, 168, 254, 0.55);
+}
+
+body.modal-open {
+  overflow: hidden;
+}
+
+.chart-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+}
+
+.chart-modal[hidden] {
+  display: none;
+}
+
+.chart-modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.78);
+  backdrop-filter: blur(4px);
+}
+
+.chart-dialog {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: min(1500px, 96vw);
+  height: min(900px, 94vh);
+  background: #0b0f14;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 28px 90px rgba(0, 0, 0, 0.60);
+  overflow: hidden;
+}
+
+.chart-dialog-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+  padding: 16px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--border);
+}
+
+.chart-dialog-header h2 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.chart-dialog-header p {
+  margin: 3px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.chart-dialog-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 7px;
+}
+
+.chart-action {
+  padding: 7px 10px;
+  color: var(--text);
+  background: #151d28;
+  border: 1px solid var(--border);
+  border-radius: 7px;
+  font: inherit;
+  font-size: 11px;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.chart-action:hover {
+  background: #1b2531;
+}
+
+.chart-action.secondary {
+  border-color: rgba(110, 168, 254, 0.35);
+}
+
+.chart-action.close {
+  width: 34px;
+  padding-left: 0;
+  padding-right: 0;
+  font-size: 18px;
+  line-height: 1;
+}
+
+.trade-chart-status {
+  padding: 8px 18px;
+  color: var(--muted);
+  background: #0e131a;
+  border-bottom: 1px solid var(--border);
+  font-size: 11px;
+}
+
+.trade-chart-status.trade-chart-error {
+  color: var(--negative);
+}
+
+.trade-chart-canvas {
+  width: 100%;
+  min-height: 430px;
+  flex: 1 1 auto;
+  background: #0b0f14;
+}
+
+.trade-chart-context {
+  max-height: 260px;
+  overflow-y: auto;
+  padding: 14px 16px;
+  background: var(--panel);
+  border-top: 1px solid var(--border);
+}
+
+.trade-context-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 8px;
+}
+
+.trade-context-card,
+.trade-plan-grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 9px 10px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border);
+  border-radius: 7px;
+}
+
+.trade-context-card span,
+.trade-plan-grid span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.trade-context-card strong,
+.trade-plan-grid strong {
+  color: var(--text);
+  font-size: 12px;
+}
+
+.trade-plan-grid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(120px, 1fr));
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.trade-plan-grid strong.positive {
+  color: var(--positive);
+}
+
+.trade-plan-grid strong.negative {
+  color: var(--negative);
+}
+
+.trade-chart-note {
+  margin-top: 9px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.trade-chart-attribution {
+  padding: 7px 14px;
+  color: var(--muted);
+  background: #0e131a;
+  border-top: 1px solid var(--border);
+  font-size: 10px;
+  text-align: right;
+}
+
+.trade-chart-attribution a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+.trade-chart-attribution a:hover {
+  text-decoration: underline;
+}
+
+@media (max-width: 1100px) {
+  .trade-context-grid,
+  .trade-plan-grid {
+    grid-template-columns: repeat(3, minmax(120px, 1fr));
+  }
+}
+
+@media (max-width: 900px) {
   .topbar {
     padding: 20px;
   }
 
   .container {
     width: calc(100% - 24px);
-
     padding-top: 20px;
   }
 
   .summary-grid {
-    grid-template-columns:
-      repeat(2, minmax(0, 1fr));
-  }
-
-  .panel-header {
-    padding: 16px;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   footer {
     width: calc(100% - 24px);
-
     padding-bottom: 24px;
   }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 700px) {
+  .chart-modal {
+    padding: 0;
+  }
+
+  .chart-dialog {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .chart-dialog-header {
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  .chart-dialog-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .trade-chart-canvas {
+    min-height: 360px;
+  }
+
+  .trade-context-grid,
+  .trade-plan-grid {
+    grid-template-columns: repeat(2, minmax(120px, 1fr));
+  }
 
   .topbar {
     flex-direction: column;
@@ -531,7 +637,6 @@ footer {
 
   footer {
     width: calc(100% - 16px);
-
     flex-direction: column;
     align-items: flex-start;
     gap: 5px;
