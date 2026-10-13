@@ -479,7 +479,7 @@ body.modal-open {
 }
 
 .trade-chart-context {
-  max-height: 260px;
+  max-height: 290px;
   overflow-y: auto;
   padding: 14px 16px;
   background: var(--panel);
@@ -531,6 +531,86 @@ body.modal-open {
 
 .trade-plan-grid strong.negative {
   color: var(--negative);
+}
+
+
+.trade-divergence-banner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 10px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.02);
+}
+
+.trade-divergence-banner > div {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+
+.trade-divergence-banner span {
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.trade-divergence-banner strong {
+  font-size: 12px;
+}
+
+.trade-divergence-banner small {
+  color: var(--muted);
+  font-size: 10px;
+  white-space: nowrap;
+}
+
+.trade-divergence-banner.bullish {
+  border-color: rgba(53, 201, 139, 0.38);
+  background: rgba(53, 201, 139, 0.08);
+}
+
+.trade-divergence-banner.bullish strong {
+  color: var(--positive);
+}
+
+.trade-divergence-banner.bearish {
+  border-color: rgba(255, 100, 124, 0.38);
+  background: rgba(255, 100, 124, 0.08);
+}
+
+.trade-divergence-banner.bearish strong {
+  color: var(--negative);
+}
+
+.trade-divergence-banner.mixed {
+  border-color: rgba(240, 195, 106, 0.38);
+  background: rgba(240, 195, 106, 0.07);
+}
+
+.trade-divergence-banner.mixed strong {
+  color: #f0c36a;
+}
+
+.trade-divergence-banner.neutral strong {
+  color: var(--muted);
+}
+
+.plan-entry {
+  color: #5fa6ff !important;
+}
+
+.plan-stop {
+  color: #ff4d67 !important;
+}
+
+.plan-target {
+  color: #22d39a !important;
 }
 
 .trade-chart-note {

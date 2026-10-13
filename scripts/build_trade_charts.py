@@ -17,6 +17,11 @@ LOOKBACK_DAYS = 420
 AFTER_TRADE_DAYS = 20
 PIVOT_WINDOW = 3
 LEVEL_TOLERANCE = 0.015
+DIVERGENCE_PIVOT_WINDOW = 3
+DIVERGENCE_MAX_GAP_SESSIONS = 60
+DIVERGENCE_PRICE_THRESHOLD = 0.01
+DIVERGENCE_RSI_THRESHOLD = 2.0
+DIVERGENCE_LOOKBACK_DAYS = 180
 
 
 def clean(value):
@@ -192,7 +197,7 @@ def pivot_levels(frame: pd.DataFrame, kind: str) -> list[float]:
     return levels
 
 
-def cluster_levels(levels: list[float]) -> list[float]:
+def clustered_level_ranges(levels: list[float]) -> list[dict]:
     if not levels:
         return []
 
@@ -215,40 +220,146 @@ def cluster_levels(levels: list[float]) -> list[float]:
         else:
             clusters.append([level])
 
-    return [sum(cluster) / len(cluster) for cluster in clusters]
-
-
-def context_levels(frame: pd.DataFrame, entry_price: float) -> list[dict]:
-    recent = frame.tail(160)
-
-    supports = cluster_levels(pivot_levels(recent, "support"))
-    resistances = cluster_levels(pivot_levels(recent, "resistance"))
-
-    below = sorted(
-        [v for v in supports if v < entry_price],
-        key=lambda v: entry_price - v,
-    )[:2]
-
-    above = sorted(
-        [v for v in resistances if v > entry_price],
-        key=lambda v: v - entry_price,
-    )[:2]
-
     result = []
 
-    for value in below:
+    for cluster in clusters:
         result.append({
-            "kind": "support",
-            "price": round(value, 6),
-        })
-
-    for value in above:
-        result.append({
-            "kind": "resistance",
-            "price": round(value, 6),
+            "low": min(cluster),
+            "high": max(cluster),
+            "mid": sum(cluster) / len(cluster),
+            "touches": len(cluster),
         })
 
     return result
+
+
+def context_zones(frame: pd.DataFrame, entry_price: float) -> list[dict]:
+    recent = frame.tail(160)
+
+    supports = clustered_level_ranges(pivot_levels(recent, "support"))
+    resistances = clustered_level_ranges(pivot_levels(recent, "resistance"))
+
+    below = sorted(
+        [zone for zone in supports if zone["mid"] < entry_price],
+        key=lambda zone: entry_price - zone["mid"],
+    )[:1]
+
+    above = sorted(
+        [zone for zone in resistances if zone["mid"] > entry_price],
+        key=lambda zone: zone["mid"] - entry_price,
+    )[:1]
+
+    result = []
+
+    for zone in below:
+        result.append({
+            "kind": "support",
+            "low": round(zone["low"], 6),
+            "high": round(zone["high"], 6),
+            "mid": round(zone["mid"], 6),
+            "touches": int(zone["touches"]),
+        })
+
+    for zone in above:
+        result.append({
+            "kind": "resistance",
+            "low": round(zone["low"], 6),
+            "high": round(zone["high"], 6),
+            "mid": round(zone["mid"], 6),
+            "touches": int(zone["touches"]),
+        })
+
+    return result
+
+
+def divergence_pivots(frame: pd.DataFrame, kind: str) -> list[tuple[pd.Timestamp, float, float]]:
+    column = "low" if kind == "bullish" else "high"
+    values = frame[column]
+    result = []
+    window = DIVERGENCE_PIVOT_WINDOW
+
+    if len(frame) < (window * 2 + 1):
+        return result
+
+    for i in range(window, len(frame) - window):
+        ts = frame.index[i]
+        value = values.iloc[i]
+        rsi = frame["rsi14"].iloc[i]
+
+        if pd.isna(value) or pd.isna(rsi):
+            continue
+
+        local = values.iloc[i - window:i + window + 1]
+
+        if kind == "bullish" and float(value) <= float(local.min()):
+            result.append((ts, float(value), float(rsi)))
+
+        if kind == "bearish" and float(value) >= float(local.max()):
+            result.append((ts, float(value), float(rsi)))
+
+    return result
+
+
+def detect_rsi_divergences(frame: pd.DataFrame, entry_bar, end_bar) -> list[dict]:
+    if frame.empty or "rsi14" not in frame.columns:
+        return []
+
+    analysis_start = entry_bar - pd.Timedelta(days=DIVERGENCE_LOOKBACK_DAYS)
+    analysis_end = end_bar + pd.Timedelta(days=AFTER_TRADE_DAYS)
+    window = frame.loc[
+        (frame.index >= analysis_start)
+        & (frame.index <= analysis_end)
+    ].copy()
+
+    result = []
+
+    for kind in ("bullish", "bearish"):
+        pivots = divergence_pivots(window, kind)
+
+        for previous, current in zip(pivots[:-1], pivots[1:]):
+            prev_time, prev_price, prev_rsi = previous
+            cur_time, cur_price, cur_rsi = current
+
+            gap_sessions = len(
+                window.loc[(window.index >= prev_time) & (window.index <= cur_time)]
+            ) - 1
+
+            if gap_sessions < 2 or gap_sessions > DIVERGENCE_MAX_GAP_SESSIONS:
+                continue
+
+            if kind == "bullish":
+                price_condition = cur_price <= prev_price * (1.0 - DIVERGENCE_PRICE_THRESHOLD)
+                rsi_condition = cur_rsi >= prev_rsi + DIVERGENCE_RSI_THRESHOLD
+            else:
+                price_condition = cur_price >= prev_price * (1.0 + DIVERGENCE_PRICE_THRESHOLD)
+                rsi_condition = cur_rsi <= prev_rsi - DIVERGENCE_RSI_THRESHOLD
+
+            if not (price_condition and rsi_condition):
+                continue
+
+            result.append({
+                "type": kind,
+                "start_time": int(prev_time.timestamp()),
+                "end_time": int(cur_time.timestamp()),
+                "start_date": prev_time.strftime("%Y-%m-%d"),
+                "end_date": cur_time.strftime("%Y-%m-%d"),
+                "start_price": round(prev_price, 6),
+                "end_price": round(cur_price, 6),
+                "start_rsi": round(prev_rsi, 4),
+                "end_rsi": round(cur_rsi, 4),
+                "gap_sessions": gap_sessions,
+            })
+
+    result.sort(key=lambda item: (item["end_time"], item["type"]))
+
+    # Keep the panel readable: latest three signals of each type are enough
+    # for a trade-level diagnostic without turning the RSI pane into spaghetti.
+    filtered = []
+    for kind in ("bullish", "bearish"):
+        typed = [item for item in result if item["type"] == kind]
+        filtered.extend(typed[-3:])
+
+    return sorted(filtered, key=lambda item: item["end_time"])
 
 
 def trendline_from_pivots(frame: pd.DataFrame, kind: str, end_time) -> dict | None:
@@ -541,11 +652,16 @@ def build_trade(row, frames, vix_frame):
             entry_bar,
             end_bar,
         ),
-        "levels": context_levels(
+        "zones": context_zones(
             entry_context,
             float(row["entry_price"]),
         ),
         "trendlines": trendlines,
+        "divergences": detect_rsi_divergences(
+            frame,
+            entry_bar,
+            end_bar,
+        ),
         "bars": serialize_bars(chart_frame),
     }
 
