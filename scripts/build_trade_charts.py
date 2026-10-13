@@ -251,20 +251,45 @@ def context_zones(frame: pd.DataFrame, entry_price: float) -> list[dict]:
 
     result = []
 
+    entry_atr = None
+    if "atr14" in frame.columns:
+        atr_series = frame["atr14"].dropna()
+        if not atr_series.empty:
+            entry_atr = float(atr_series.iloc[-1])
+
+    # A single pivot can produce low == high, which would otherwise render as
+    # a 1-pixel line. Give the zone a small visual thickness while preserving
+    # the actual min/max range whenever the cluster contains multiple pivots.
+    visual_pad = max(
+        (entry_atr * 0.35) if entry_atr and math.isfinite(entry_atr) else 0.0,
+        float(entry_price) * 0.0025,
+    )
+
+    def visual_bounds(zone):
+        low = float(zone["low"])
+        high = float(zone["high"])
+        if (high - low) < visual_pad:
+            mid = float(zone["mid"])
+            low = mid - (visual_pad / 2.0)
+            high = mid + (visual_pad / 2.0)
+        return round(low, 6), round(high, 6)
+
     for zone in below:
+        low, high = visual_bounds(zone)
         result.append({
             "kind": "support",
-            "low": round(zone["low"], 6),
-            "high": round(zone["high"], 6),
+            "low": low,
+            "high": high,
             "mid": round(zone["mid"], 6),
             "touches": int(zone["touches"]),
         })
 
     for zone in above:
+        low, high = visual_bounds(zone)
         result.append({
             "kind": "resistance",
-            "low": round(zone["low"], 6),
-            "high": round(zone["high"], 6),
+            "low": low,
+            "high": high,
             "mid": round(zone["mid"], 6),
             "touches": int(zone["touches"]),
         })
@@ -621,6 +646,8 @@ def build_trade(row, frames, vix_frame):
         "entry_bar_date": entry_bar.strftime("%Y-%m-%d"),
         "exit_bar_date": end_bar.strftime("%Y-%m-%d"),
         "entry_price": float(row["entry_price"]),
+        "entry_time": int(entry_bar.timestamp()),
+        "trade_end_time": int(end_bar.timestamp()),
         "exit_price": float(exit_price) if exit_price is not None else None,
         "shares": int(row["shares"]),
         "notional": float(row["notional"]),

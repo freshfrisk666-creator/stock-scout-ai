@@ -166,7 +166,7 @@ body {
 
 table {
   width: 100%;
-  min-width: 1100px;
+  min-width: 1400px;
   border-collapse: collapse;
   font-size: 13px;
 }
@@ -722,3 +722,30 @@ body.modal-open {
     gap: 5px;
   }
 }
+
+/* V1.2 trade-plan visual hierarchy */
+.trade-chart-plan-note {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 14px;
+  margin-top: 10px;
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.trade-chart-plan-note span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.trade-chart-plan-note i {
+  display: inline-block;
+  width: 26px;
+  height: 8px;
+  border-radius: 999px;
+}
+
+.trade-chart-plan-note .reward { background: rgba(53, 201, 139, 0.34); }
+.trade-chart-plan-note .risk { background: rgba(255, 84, 108, 0.34); }
+.trade-chart-plan-note .support { background: rgba(62, 174, 255, 0.40); }

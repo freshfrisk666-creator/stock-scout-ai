@@ -199,6 +199,21 @@ class PriceZonePrimitive {
   detached() {}
   updateAllViews() {}
 
+  zoneStyle(zone) {
+    switch (zone.kind) {
+      case "trade_reward":
+        return { fill: "rgba(53, 201, 139, 0.11)", stroke: "rgba(53, 201, 139, 0.34)", text: "rgba(91, 227, 168, 0.95)" };
+      case "trade_risk":
+        return { fill: "rgba(255, 84, 108, 0.10)", stroke: "rgba(255, 84, 108, 0.34)", text: "rgba(255, 126, 144, 0.95)" };
+      case "support":
+        return { fill: "rgba(62, 174, 255, 0.14)", stroke: "rgba(62, 174, 255, 0.42)", text: "rgba(112, 201, 255, 0.98)" };
+      case "resistance":
+        return { fill: "rgba(240, 178, 74, 0.10)", stroke: "rgba(240, 178, 74, 0.34)", text: "rgba(255, 205, 110, 0.98)" };
+      default:
+        return { fill: "rgba(141, 153, 168, 0.05)", stroke: "rgba(141, 153, 168, 0.20)", text: "rgba(200, 208, 218, 0.90)" };
+    }
+  }
+
   paneViews() {
     return [{
       zOrder: () => "bottom",
@@ -207,27 +222,41 @@ class PriceZonePrimitive {
           target.useMediaCoordinateSpace((scope) => {
             const ctx = scope.context;
             const width = scope.mediaSize.width;
-            const firstTime = this.chart.timeScale().timeToCoordinate(this.zones[0]?.start_time ?? 0);
-            const lastTime = this.chart.timeScale().timeToCoordinate(this.zones[0]?.end_time ?? 0);
-            const x1 = firstTime === null ? 0 : Math.max(0, Math.min(width, firstTime));
-            const x2 = lastTime === null ? width : Math.max(0, Math.min(width, lastTime));
-            const left = Math.min(x1, x2);
-            const right = Math.max(x1, x2);
 
             for (const zone of this.zones) {
+              const startX = this.chart.timeScale().timeToCoordinate(zone.start_time);
+              const endX = this.chart.timeScale().timeToCoordinate(zone.end_time);
+              if (startX === null && endX === null) continue;
+
+              const x1 = startX === null ? 0 : startX;
+              const x2 = endX === null ? width : endX;
+              const left = Math.max(0, Math.min(width, Math.min(x1, x2)));
+              const right = Math.max(0, Math.min(width, Math.max(x1, x2)));
+
               const yTop = this.series.priceToCoordinate(Number(zone.high));
               const yBottom = this.series.priceToCoordinate(Number(zone.low));
               if (yTop === null || yBottom === null) continue;
 
               const top = Math.min(yTop, yBottom);
-              const height = Math.max(1, Math.abs(yBottom - yTop));
-              const support = zone.kind === "support";
-              ctx.fillStyle = support ? "rgba(53, 201, 139, 0.12)" : "rgba(255, 100, 124, 0.08)";
+              const height = Math.max(2, Math.abs(yBottom - yTop));
+              const style = this.zoneStyle(zone);
+
+              ctx.save();
+              ctx.fillStyle = style.fill;
               ctx.fillRect(left, top, Math.max(1, right - left), height);
 
-              ctx.strokeStyle = support ? "rgba(53, 201, 139, 0.30)" : "rgba(255, 100, 124, 0.24)";
-              ctx.lineWidth = 1;
+              ctx.strokeStyle = style.stroke;
+              ctx.lineWidth = zone.kind === "support" ? 1.5 : 1;
               ctx.strokeRect(left + 0.5, top + 0.5, Math.max(1, right - left - 1), Math.max(1, height - 1));
+
+              if (zone.label && right - left > 90 && height >= 16) {
+                ctx.font = "600 11px Inter, -apple-system, BlinkMacSystemFont, Segoe UI, sans-serif";
+                ctx.fillStyle = style.text;
+                ctx.textAlign = "right";
+                ctx.textBaseline = "middle";
+                ctx.fillText(zone.label, right - 8, top + Math.min(height - 7, 15));
+              }
+              ctx.restore();
             }
           });
         },
@@ -236,14 +265,44 @@ class PriceZonePrimitive {
   }
 }
 
-function attachZonePrimitive(chart, series, zones, bars) {
-  if (!zones || zones.length === 0 || !bars || bars.length < 2) return;
-  const enriched = zones.map((zone) => ({
+function attachZonePrimitive(chart, series, zones, bars, trade) {
+  if (!bars || bars.length < 2) return;
+
+  const allZones = [...(zones || [])];
+  const entryTime = Number(trade?.entry_time || bars[0].time);
+  const tradeEndTime = Number(trade?.trade_end_time || bars[bars.length - 1].time);
+
+  if (Number.isFinite(Number(trade?.entry_price)) && Number.isFinite(Number(trade?.target))) {
+    allZones.push({
+      kind: "trade_reward",
+      low: Math.min(Number(trade.entry_price), Number(trade.target)),
+      high: Math.max(Number(trade.entry_price), Number(trade.target)),
+      start_time: entryTime,
+      end_time: tradeEndTime,
+      label: "TARGET / REWARD",
+    });
+  }
+
+  if (Number.isFinite(Number(trade?.entry_price)) && Number.isFinite(Number(trade?.stop))) {
+    allZones.push({
+      kind: "trade_risk",
+      low: Math.min(Number(trade.stop), Number(trade.entry_price)),
+      high: Math.max(Number(trade.stop), Number(trade.entry_price)),
+      start_time: entryTime,
+      end_time: tradeEndTime,
+      label: "STOP / RISK",
+    });
+  }
+
+  const enriched = allZones.map((zone) => ({
     ...zone,
-    start_time: bars[0].time,
-    end_time: bars[bars.length - 1].time,
+    start_time: zone.start_time ?? bars[0].time,
+    end_time: zone.end_time ?? bars[bars.length - 1].time,
   }));
-  series.attachPrimitive(new PriceZonePrimitive(chart, series, enriched));
+
+  if (enriched.length > 0) {
+    series.attachPrimitive(new PriceZonePrimitive(chart, series, enriched));
+  }
 }
 
 function buildDivergenceSeries(chart, rsiSeries, divergences) {
@@ -360,9 +419,9 @@ function drawTradeChart(trade) {
   })));
 
   const maConfig = [
-    ["sma20", "SMA20", "#f0c36a", 1],
-    ["sma50", "SMA50", "#6ea8fe", 1],
-    ["sma200", "SMA200", "#a978d6", 1],
+    ["sma20", "SMA20", "rgba(240,195,106,0.60)", 1],
+    ["sma50", "SMA50", "rgba(110,168,254,0.52)", 1],
+    ["sma200", "SMA200", "rgba(169,120,214,0.42)", 1],
   ];
   maConfig.forEach(([key, title, color, width]) => {
     const line = chart.addSeries(LineSeries, {
@@ -375,20 +434,21 @@ function drawTradeChart(trade) {
     line.setData(barSeriesData(trade.bars, key));
   });
 
-  // Trade-plan levels are intentionally heavier and more readable than the other overlays.
-  addPriceLine(candles, trade.entry_price, "ENTRY", "#5fa6ff", LineStyle.Solid, 3);
-  addPriceLine(candles, trade.stop, "STOP LOSS", "#ff4d67", LineStyle.Solid, 3);
-  addPriceLine(candles, trade.target, "TARGET", "#22d39a", LineStyle.Solid, 3);
+  // Trade-plan levels are intentionally dominant. The colored bands below make
+  // the reward/risk structure immediately readable without hiding the candles.
+  addPriceLine(candles, trade.entry_price, "ENTRY", "#76b7ff", LineStyle.Solid, 4);
+  addPriceLine(candles, trade.stop, "STOP LOSS", "#ff4f6d", LineStyle.Solid, 4);
+  addPriceLine(candles, trade.target, "TARGET", "#2fe39a", LineStyle.Solid, 4);
 
   if (trade.exit_price !== null && trade.exit_price !== undefined) {
-    addPriceLine(candles, trade.exit_price, "EXIT", "#f0c36a", LineStyle.Dotted, 2);
+    addPriceLine(candles, trade.exit_price, "EXIT", "#ffd166", LineStyle.Solid, 3);
   }
 
-  attachZonePrimitive(chart, candles, trade.zones || [], trade.bars);
+  attachZonePrimitive(chart, candles, trade.zones || [], trade.bars, trade);
 
   (trade.trendlines || []).forEach((trendline) => {
     const line = chart.addSeries(LineSeries, {
-      color: trendline.kind === "support" ? "rgba(53,201,139,0.55)" : "rgba(110,168,254,0.55)",
+      color: trendline.kind === "support" ? "rgba(62,174,255,0.48)" : "rgba(240,178,74,0.42)",
       lineWidth: 1,
       lineStyle: LineStyle.Dashed,
       priceLineVisible: false,
