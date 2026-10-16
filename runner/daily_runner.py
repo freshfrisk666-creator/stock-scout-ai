@@ -7,13 +7,16 @@ from typing import Any
 
 def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
     """Run the end-of-day Stock Scout AI selection/exit cycle."""
-    from main import load_config, run_eod_pipeline
+    from main import load_config, run_pipeline
 
     cfg = load_config(config_path)
-    scan, top10, open_positions, snapshot, portfolio_status, closed = run_eod_pipeline(cfg)
+
+    scan, top10, open_positions, snapshot, portfolio_status, closed = (
+        run_pipeline(cfg)
+    )
 
     return {
-        "config_path": str(Path(config_path)),
+        "config_path": Path(config_path).as_posix(),
         "scanned": len(scan),
         "top10": len(top10),
         "open_positions": len(open_positions),
@@ -28,11 +31,13 @@ def main() -> int:
     parser = argparse.ArgumentParser(
         description="Run the Stock Scout AI end-of-day selection/exit cycle"
     )
+
     parser.add_argument(
         "--config",
         default="config/config.yaml",
         help="Path to the YAML configuration file",
     )
+
     args = parser.parse_args()
 
     result = run_once(args.config)
@@ -47,6 +52,7 @@ def main() -> int:
 
     if result["closed"]:
         print("Closed trades:")
+
         for trade in result["closed"]:
             print(trade)
     else:
