@@ -6,15 +6,11 @@ from typing import Any
 
 
 def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
-    """Run one complete Stock Scout AI paper-trading cycle.
-
-    The imports are intentionally performed inside the function so the runner
-    remains easy to unit-test without starting the market-data stack at import time.
-    """
-    from main import load_config, run_pipeline
+    """Run the end-of-day Stock Scout AI selection/exit cycle."""
+    from main import load_config, run_eod_pipeline
 
     cfg = load_config(config_path)
-    scan, top10, open_positions, snapshot, portfolio_status, closed = run_pipeline(cfg)
+    scan, top10, open_positions, snapshot, portfolio_status, closed = run_eod_pipeline(cfg)
 
     return {
         "config_path": str(Path(config_path)),
@@ -29,7 +25,9 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Run one Stock Scout AI paper-trading cycle")
+    parser = argparse.ArgumentParser(
+        description="Run the Stock Scout AI end-of-day selection/exit cycle"
+    )
     parser.add_argument(
         "--config",
         default="config/config.yaml",
@@ -39,12 +37,13 @@ def main() -> int:
 
     result = run_once(args.config)
 
-    print("STOCK SCOUT AI — AUTOMATED PAPER TRADING")
+    print("STOCK SCOUT AI — END-OF-DAY SELECTION / EXIT CYCLE")
     print(f"Scanned: {result['scanned']}")
-    print(f"Top 10: {result['top10']}")
+    print(f"Top 10 candidates: {result['top10']}")
     print(f"Open positions: {result['open_positions']}")
     print(f"Closed this run: {result['closed_this_run']}")
     print(f"Portfolio snapshot: {result['snapshot']}")
+    print("New entries this cycle: 0 (handled by morning-entry workflow)")
 
     if result["closed"]:
         print("Closed trades:")

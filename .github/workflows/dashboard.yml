@@ -1,16 +1,23 @@
 name: stock-scout-dashboard
+
 on:
   workflow_dispatch:
   workflow_run:
-    workflows: [paper-trading, intraday-paper-monitor]
+    workflows:
+      - paper-trading
+      - morning-entry
+      - intraday-paper-monitor
     types: [completed]
+
 permissions:
   contents: read
   pages: write
   id-token: write
+
 concurrency:
   group: stock-scout-ai-dashboard
   cancel-in-progress: true
+
 jobs:
   deploy:
     if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
@@ -19,31 +26,39 @@ jobs:
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
+
     steps:
       - name: Checkout latest main
         uses: actions/checkout@v6
         with:
           ref: main
           fetch-depth: 1
+
       - name: Set up Python
         uses: actions/setup-python@v7
         with:
           python-version: "3.12"
           cache: pip
+
       - name: Install dashboard dependencies
         run: |
           python -m pip install --upgrade pip
           pip install pandas yfinance
+
       - name: Build dashboard data
         run: python scripts/build_dashboard.py
+
       - name: Build trade chart data
         run: python scripts/build_trade_charts.py
+
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
+
       - name: Upload dashboard
         uses: actions/upload-pages-artifact@v4
         with:
           path: dashboard
+
       - name: Deploy dashboard
         id: deployment
         uses: actions/deploy-pages@v4

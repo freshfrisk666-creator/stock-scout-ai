@@ -3,7 +3,8 @@ name: paper-trading
 on:
   workflow_dispatch:
   schedule:
-    # Daily selection after the US cash-market close.
+    # Daily selection and exit processing after the US cash-market close.
+    # IMPORTANT: this workflow NEVER opens new positions.
     - cron: "30 16 * * 1-5"
       timezone: "America/New_York"
 
@@ -36,7 +37,7 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Run daily paper-trading cycle
+      - name: Run end-of-day selection and exit cycle
         run: python -m runner.daily_runner
 
       - name: Persist paper portfolio database

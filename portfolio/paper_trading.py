@@ -38,7 +38,7 @@ def _json_safe(value):
 
 
 def build_signal_snapshot(row: pd.Series) -> str:
-    """Serialize the complete Top10 row used to open the position."""
+    """Serialize the complete candidate row used to open the position."""
     snapshot = {
         str(key): _json_safe(value)
         for key, value in row.items()
@@ -184,9 +184,22 @@ class PaperPortfolio:
         self,
         top10: pd.DataFrame,
         as_of: str | None = None,
+        entry_prices: dict[str, float] | None = None,
+        stop_atr_multiple: float | None = None,
+        target_atr_multiple: float | None = None,
+        trade_reason: str = "OPEN_POSITION",
     ) -> pd.DataFrame:
-        """Fill free portfolio slots from the current Top 10."""
+        """Fill only currently free portfolio slots from ranked candidates.
+
+        Existing OPEN positions are never replaced.
+
+        If entry_prices is supplied for a ticker, that price is used as the
+        paper execution price. Stop/target are then recalculated from atr14
+        and the actual entry price when the ATR multipliers are supplied.
+        Otherwise the values already present in the candidate row are used.
+        """
         as_of = as_of or _utc_now()
+        entry_prices = entry_prices or {}
 
         if top10.empty:
             return self.open_positions()
@@ -214,7 +227,45 @@ class PaperPortfolio:
                 if ticker in open_tickers:
                     continue
 
-                entry = float(row["entry"])
+                trade_row = row.copy()
+
+                has_live_entry = ticker in entry_prices
+                entry = float(entry_prices[ticker]) if has_live_entry else float(row["entry"])
+
+                if has_live_entry:
+                    atr = row.get("atr14")
+                    if (
+                        atr is not None
+                        and pd.notna(atr)
+                        and stop_atr_multiple is not None
+                        and target_atr_multiple is not None
+                    ):
+                        atr_value = float(atr)
+                        stop = entry - float(stop_atr_multiple) * atr_value
+                        target = entry + float(target_atr_multiple) * atr_value
+                    else:
+                        stop = float(row["stop"])
+                        target = float(row["target"])
+                else:
+                    stop = float(row["stop"])
+                    target = float(row["target"])
+
+                trade_row["entry"] = entry
+                trade_row["stop"] = stop
+                trade_row["target"] = target
+
+                # Preserve an explicitly supplied source/reference timestamp
+                # from the morning entry runner; otherwise use a fallback.
+                if "entry_source" not in trade_row.index:
+                    trade_row["entry_source"] = (
+                        "OPENING_WINDOW_INTRADAY"
+                        if has_live_entry
+                        else "SIGNAL_PRICE"
+                    )
+
+                if "entry_reference_time" not in trade_row.index:
+                    trade_row["entry_reference_time"] = None
+
                 shares = math.floor(target_notional / entry)
                 if shares <= 0:
                     continue
@@ -223,7 +274,7 @@ class PaperPortfolio:
                 if notional > cash:
                     continue
 
-                signal_snapshot = build_signal_snapshot(row)
+                signal_snapshot = build_signal_snapshot(trade_row)
 
                 cursor = conn.execute(
                     """
@@ -242,8 +293,8 @@ class PaperPortfolio:
                         entry,
                         shares,
                         notional,
-                        float(row["stop"]),
-                        float(row["target"]),
+                        stop,
+                        target,
                         float(row.get("technical_score", 0.0)),
                         signal_snapshot,
                     ),
@@ -260,7 +311,7 @@ class PaperPortfolio:
                         portfolio_id, position_id, ticker, side, timestamp,
                         price, shares, notional, cash_after, reason,
                         realized_pnl, signal_snapshot
-                    ) VALUES (?, ?, ?, 'BUY', ?, ?, ?, ?, ?, 'OPEN_POSITION', 0, ?)
+                    ) VALUES (?, ?, ?, 'BUY', ?, ?, ?, ?, ?, ?, 0, ?)
                     """,
                     (
                         self.portfolio_id,
@@ -271,6 +322,7 @@ class PaperPortfolio:
                         shares,
                         notional,
                         cash,
+                        trade_reason,
                         signal_snapshot,
                     ),
                 )
