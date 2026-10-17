@@ -5,7 +5,8 @@ market:
   benchmark: "SPY"
 
 scanner:
-  min_price: 10.0
+  # No minimum share-price filter: all S&P 500 prices are eligible.
+  min_price: null
   min_avg_dollar_volume_20d: 50000000
   batch_size: 50
   max_symbols: null
