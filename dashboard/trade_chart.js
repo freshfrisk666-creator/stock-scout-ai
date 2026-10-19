@@ -12,17 +12,17 @@ let tradeChartState = {
 
 function chartMoney(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  return Number(value).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $";
+  return Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " $";
 }
 
 function chartPct(value) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  return Number(value).toLocaleString("it-IT", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
+  return Number(value).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + "%";
 }
 
 function chartNum(value, decimals = 2) {
   if (value === null || value === undefined || Number.isNaN(Number(value))) return "—";
-  return Number(value).toLocaleString("it-IT", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
+  return Number(value).toLocaleString("en-US", { minimumFractionDigits: decimals, maximumFractionDigits: decimals });
 }
 
 function chartEl(id) { return document.getElementById(id); }
@@ -42,7 +42,7 @@ function injectChartButtons(root) {
     if (!positionId) return;
 
     const cell = document.createElement("td");
-    cell.innerHTML = '<button type="button" class="chart-btn">📊 Chart</button>';
+    cell.innerHTML = '<button type="button" class="chart-btn" title="Open chart" aria-label="Open chart">📊</button>';
     const button = cell.querySelector("button");
     button.addEventListener("click", (event) => {
       event.stopPropagation();
@@ -66,7 +66,7 @@ function openTradeChart(positionId) {
   modal.hidden = false;
   document.body.classList.add("modal-open");
   tradeChartState.positionId = Number(positionId);
-  chartStatus("Caricamento del tracciato...");
+  chartStatus("Loading chart...");
   fetchTradeData(positionId, null);
 }
 
@@ -85,12 +85,12 @@ async function fetchTradeData(positionId, preserveRange = null) {
     renderTradeContext(trade);
     drawTradeChart(trade, preserveRange);
 
-    chartStatus("Tracciato aggiornato: " + new Date().toLocaleString("it-IT"));
+    chartStatus("Chart updated: " + new Date().toLocaleString("en-US"));
   } catch (error) {
     // During a refresh, keep the existing chart (and its zoom) visible if the
     // new dataset cannot be loaded. On first open there is no chart to preserve.
     if (!tradeChartState.chart) destroyTradeChart();
-    chartStatus("Errore caricamento chart: " + error.message, true);
+    chartStatus("Chart loading error: " + error.message, true);
   }
 }
 
@@ -98,7 +98,7 @@ function renderTradeHeader(trade) {
   chartEl("tradeChartTitle").textContent = trade.ticker + " — " + (trade.strategy_type || "SWING");
   chartEl("tradeChartSubtitle").textContent =
     "Entry " + chartMoney(trade.entry_price) + " · " +
-    (trade.status === "CLOSED" ? "Trade chiuso" : "Posizione aperta");
+    (trade.status === "CLOSED" ? "Closed Trade" : "Open Position");
 }
 
 function renderTradeContext(trade) {
@@ -112,16 +112,16 @@ function renderTradeContext(trade) {
   const pnlClass = Number(trade.realized_pnl) > 0 ? "positive" : Number(trade.realized_pnl) < 0 ? "negative" : "";
   const returnClass = Number(trade.realized_return_pct) > 0 ? "positive" : Number(trade.realized_return_pct) < 0 ? "negative" : "";
 
-  let divergenceLabel = "Nessuna divergenza RSI significativa";
+  let divergenceLabel = "No significant RSI divergence";
   let divergenceClass = "neutral";
   if (bullish.length && bearish.length) {
     divergenceLabel = "Bullish + Bearish divergence";
     divergenceClass = "mixed";
   } else if (bullish.length) {
-    divergenceLabel = "Bullish divergence presente";
+    divergenceLabel = "Bullish divergence present";
     divergenceClass = "bullish";
   } else if (bearish.length) {
-    divergenceLabel = "Bearish divergence presente";
+    divergenceLabel = "Bearish divergence present";
     divergenceClass = "bearish";
   }
 
@@ -160,7 +160,7 @@ function renderTradeContext(trade) {
     </div>
 
     <div class="trade-chart-note">
-      Il VIX è usato solo come contesto del mercato. Non viene disegnato nel chart e non modifica lo scoring. Le divergenze sono rilevate su prezzo + RSI14 e sono un'analisi diagnostica, non un segnale automatico. La linea tratteggiata è una possibile traiettoria verso il target, non una previsione certa.
+      VIX is shown as market context only. It is not plotted and does not affect scoring. Divergences are diagnostic analysis based on price + RSI14, not automatic signals. The dashed line is a possible path toward the target, not a forecast.
     </div>
   `;
 }
@@ -381,7 +381,7 @@ function ensureSmaControls() {
     button.className = "chart-action indicator-toggle";
     button.dataset.smaToggle = key;
     button.textContent = label;
-    button.title = "Mostra / nascondi " + label;
+    button.title = "Show / hide " + label;
     button.addEventListener("click", () => toggleSma(key));
     actions.insertBefore(button, actions.firstChild);
   });
@@ -486,11 +486,11 @@ function drawTradeChart(trade, preserveRange = null) {
   destroyTradeChart();
 
   if (!window.LightweightCharts) {
-    chartStatus("Libreria grafica non disponibile.", true);
+    chartStatus("Chart library unavailable.", true);
     return;
   }
   if (!trade.bars || trade.bars.length === 0) {
-    chartStatus("Dati storici non disponibili.", true);
+    chartStatus("Historical data unavailable.", true);
     return;
   }
 
@@ -650,7 +650,7 @@ function refreshTradeChart() {
     }
   }
 
-  chartStatus("Aggiornamento del tracciato...");
+  chartStatus("Updating chart...");
   fetchTradeData(tradeChartState.positionId, visibleRange);
 }
 

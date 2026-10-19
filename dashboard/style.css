@@ -772,3 +772,41 @@ body.modal-open {
 .trade-chart-plan-note .reward { background: rgba(53, 201, 139, 0.34); }
 .trade-chart-plan-note .risk { background: rgba(255, 84, 108, 0.34); }
 .trade-chart-plan-note .support { background: rgba(62, 174, 255, 0.40); }
+
+
+/* Dashboard English / status timestamp */
+.status-separator {
+  color: var(--muted);
+  opacity: 0.6;
+}
+
+.status-updated {
+  color: var(--muted);
+}
+
+.badge.target {
+  color: var(--positive);
+  background: rgba(53, 201, 139, 0.10);
+  border: 1px solid rgba(53, 201, 139, 0.25);
+}
+
+.badge.stop {
+  color: var(--negative);
+  background: rgba(255, 79, 109, 0.10);
+  border: 1px solid rgba(255, 79, 109, 0.25);
+}
+
+.badge.closed {
+  color: var(--muted);
+  background: rgba(141, 153, 168, 0.08);
+  border: 1px solid rgba(141, 153, 168, 0.20);
+}
+
+.chart-btn {
+  width: 32px;
+  height: 30px;
+  padding: 0;
+  gap: 0;
+  font-size: 14px;
+  line-height: 1;
+}

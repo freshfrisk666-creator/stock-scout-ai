@@ -273,6 +273,29 @@ def main():
                 float(exit_price) - entry
             ) / entry
 
+        stop = clean(row.stop)
+        target = clean(row.target)
+
+        realized_r = None
+        if exit_price is not None and stop is not None and float(entry) > float(stop):
+            realized_r = (float(exit_price) - float(entry)) / (float(entry) - float(stop))
+
+        entry_dt = pd.to_datetime(row.entry_date, utc=True, errors="coerce")
+        exit_dt = pd.to_datetime(row.exit_date, utc=True, errors="coerce")
+        holding_days = None
+        if pd.notna(entry_dt) and pd.notna(exit_dt):
+            holding_days = max(0, (exit_dt - entry_dt).total_seconds() / 86400)
+
+        reason = str(row.close_reason or "")
+        status_label = {
+            "TARGET_CLOSE": "TARGET",
+            "STOP_CLOSE": "STOP",
+            "MANUAL_CLOSE": "MANUAL",
+        }.get(
+            reason,
+            reason.replace("_", " ").strip().title() if reason else "CLOSED",
+        )
+
         closed.append(
             {
                 "id": int(row.id),
@@ -286,6 +309,11 @@ def main():
                 "exit_price": exit_price,
                 "realized_pnl": realized_pnl,
                 "realized_return": realized_return,
+                "stop": stop,
+                "target": target,
+                "realized_r": realized_r,
+                "holding_days": holding_days,
+                "status_label": status_label,
                 "close_reason": clean(row.close_reason),
                 "strategy_type": (
                     row.get("strategy_type")

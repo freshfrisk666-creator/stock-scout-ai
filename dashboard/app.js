@@ -12,10 +12,12 @@ function money(value) {
     return "—";
   }
 
-  return Number(value).toLocaleString("it-IT", {
+  return Number(value).toLocaleString("en-US", {
+    style: "currency",
+    currency: "USD",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
-  }) + " $";
+  });
 }
 
 function num(value, decimals = 2) {
@@ -23,7 +25,7 @@ function num(value, decimals = 2) {
     return "—";
   }
 
-  return Number(value).toLocaleString("it-IT", {
+  return Number(value).toLocaleString("en-US", {
     minimumFractionDigits: decimals,
     maximumFractionDigits: decimals
   });
@@ -34,7 +36,7 @@ function pct(value) {
     return "—";
   }
 
-  return Number(value).toLocaleString("it-IT", {
+  return Number(value).toLocaleString("en-US", {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2
   }) + "%";
@@ -59,18 +61,35 @@ function cls(value) {
 }
 
 function formatDate(value) {
-  if (!value) {
-    return "—";
-  }
-
+  if (!value) return "—";
   const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
 
-  if (Number.isNaN(date.getTime())) {
-    return value;
-  }
-
-  return date.toLocaleDateString("it-IT");
+  return date.toLocaleDateString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
 }
+
+function formatDateTime(value) {
+  if (!value) return "—";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+
+  return date.toLocaleString("en-GB", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    timeZoneName: "short"
+  });
+}
+
+// ------------------------------------------------------------
+// Status
+// ------------------------------------------------------------
 
 // ------------------------------------------------------------
 // Status
@@ -183,79 +202,32 @@ function renderOpenPositions(positions) {
 
   if (!positions || positions.length === 0) {
     tbody.innerHTML = `
-      <tr>
-        <td colspan="14" class="empty">
-          Nessuna posizione aperta.
-        </td>
-      </tr>
+      <tr><td colspan="14" class="empty">No open positions.</td></tr>
     `;
-
     return;
   }
 
   tbody.innerHTML = positions.map((position, index) => {
-
     const pnl = Number(position.unrealized_pnl || 0);
     const pnlPct = Number(position.unrealized_return || 0);
     const currentR = Number(position.current_r || 0);
     const watch = currentR < 0;
 
     return `
-      <tr
-        class="position-row"
-        data-id="${position.id}"
-      >
-
+      <tr class="position-row" data-id="${position.id}">
         <td>${position.rank ?? index + 1}</td>
-
-        <td>
-          <strong>${position.ticker || "—"}</strong>
-        </td>
-
-        <td>
-          ${num(position.shares, 0)}
-        </td>
-
-        <td>
-          ${money(position.notional)}
-        </td>
-
-        <td>
-          ${money(position.entry_price)}
-        </td>
-
-        <td>
-          ${money(position.mark_price)}
-        </td>
-
-        <td class="${cls(pnl)}">
-          ${money(pnl)}
-        </td>
-
-        <td class="${cls(pnlPct)}">
-          ${pct(pnlPct)}
-        </td>
-
-        <td class="${cls(currentR)}">
-          ${num(currentR)}
-        </td>
-
-        <td>
-          ${money(position.stop)}
-        </td>
-
-        <td>
-          ${money(position.target)}
-        </td>
-
-        <td>
-          ${num(position.holding_days, 0)}
-        </td>
-
-        <td>
-          <span class="badge ${watch ? "watch" : "open"}">${watch ? "WATCH" : "OPEN"}</span>
-        </td>
-
+        <td><strong>${position.ticker || "—"}</strong></td>
+        <td>${num(position.shares, 0)}</td>
+        <td>${money(position.notional)}</td>
+        <td>${money(position.entry_price)}</td>
+        <td>${money(position.mark_price)}</td>
+        <td>${money(position.stop)}</td>
+        <td>${money(position.target)}</td>
+        <td class="${cls(pnl)}">${money(pnl)}</td>
+        <td class="${cls(pnlPct)}">${pct(pnlPct)}</td>
+        <td class="${cls(currentR)}">${num(currentR)}</td>
+        <td>${num(position.holding_days, 0)}</td>
+        <td><span class="badge ${watch ? "watch" : "open"}">${watch ? "WATCH" : "OPEN"}</span></td>
       </tr>
     `;
   }).join("");
@@ -263,11 +235,7 @@ function renderOpenPositions(positions) {
   tbody.querySelectorAll(".position-row").forEach(row => {
     row.addEventListener("click", () => {
       const id = Number(row.dataset.id);
-
-      const position = positions.find(
-        item => Number(item.id) === id
-      );
-
+      const position = positions.find(item => Number(item.id) === id);
       if (position) {
         selectedPosition = position;
         renderOpenDetail(position);
@@ -280,68 +248,42 @@ function renderOpenPositions(positions) {
 // Closed positions
 // ------------------------------------------------------------
 
+// ------------------------------------------------------------
+// Closed positions
+// ------------------------------------------------------------
+
 function renderClosedPositions(positions) {
   const tbody = document.getElementById("closedTableBody");
 
   if (!positions || positions.length === 0) {
     tbody.innerHTML = `
-      <tr>
-        <td colspan="10" class="empty">
-          Nessun trade chiuso.
-        </td>
-      </tr>
+      <tr><td colspan="14" class="empty">No closed trades.</td></tr>
     `;
-
     return;
   }
 
-  tbody.innerHTML = positions.map(position => {
-
+  tbody.innerHTML = positions.map((position, index) => {
     const pnl = Number(position.realized_pnl || 0);
     const pnlPct = Number(position.realized_return || 0);
+    const realizedR = Number(position.realized_r || 0);
+    const status = position.status_label || "CLOSED";
+    const statusClass = status === "TARGET" ? "target" : status === "STOP" ? "stop" : "closed";
 
     return `
-      <tr
-        class="position-row"
-        data-id="${position.id}"
-      >
-
-        <td>
-          <strong>${position.ticker || "—"}</strong>
-        </td>
-
-        <td>
-          ${num(position.shares, 0)}
-        </td>
-
-        <td>
-          ${money(position.notional)}
-        </td>
-
-        <td>
-          ${money(position.entry_price)}
-        </td>
-
-        <td>
-          ${money(position.exit_price)}
-        </td>
-
-        <td class="${cls(pnl)}">
-          ${money(pnl)}
-        </td>
-
-        <td class="${cls(pnlPct)}">
-          ${pct(pnlPct)}
-        </td>
-
-        <td>
-          ${position.close_reason || "—"}
-        </td>
-
-        <td>
-          ${formatDate(position.exit_date)}
-        </td>
-
+      <tr class="position-row" data-id="${position.id}">
+        <td>${position.rank ?? index + 1}</td>
+        <td><strong>${position.ticker || "—"}</strong></td>
+        <td>${num(position.shares, 0)}</td>
+        <td>${money(position.notional)}</td>
+        <td>${money(position.entry_price)}</td>
+        <td>${money(position.exit_price)}</td>
+        <td>${money(position.stop)}</td>
+        <td>${money(position.target)}</td>
+        <td class="${cls(pnl)}">${money(pnl)}</td>
+        <td class="${cls(pnlPct)}">${pct(pnlPct)}</td>
+        <td class="${cls(realizedR)}">${num(realizedR)}</td>
+        <td>${num(position.holding_days, 0)}</td>
+        <td><span class="badge ${statusClass}">${status}</span></td>
       </tr>
     `;
   }).join("");
@@ -349,11 +291,7 @@ function renderClosedPositions(positions) {
   tbody.querySelectorAll(".position-row").forEach(row => {
     row.addEventListener("click", () => {
       const id = Number(row.dataset.id);
-
-      const position = positions.find(
-        item => Number(item.id) === id
-      );
-
+      const position = positions.find(item => Number(item.id) === id);
       if (position) {
         selectedPosition = position;
         renderClosedDetail(position);
@@ -366,9 +304,12 @@ function renderClosedPositions(positions) {
 // Open detail
 // ------------------------------------------------------------
 
+// ------------------------------------------------------------
+// Open detail
+// ------------------------------------------------------------
+
 function renderOpenDetail(position) {
   const container = document.getElementById("detailContent");
-
   const pnl = Number(position.unrealized_pnl || 0);
   const pnlPct = Number(position.unrealized_return || 0);
   const currentR = Number(position.current_r || 0);
@@ -376,103 +317,26 @@ function renderOpenDetail(position) {
 
   container.innerHTML = `
     <div class="detail-grid">
-
-      <div class="detail-item">
-        <span>Ticker</span>
-        <strong>${position.ticker || "—"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Azioni</span>
-        <strong>${num(position.shares, 0)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Capitale investito</span>
-        <strong>${money(position.notional)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Stato</span>
-        <strong class="${watch ? "negative" : "positive"}">${watch ? "WATCH" : "OPEN"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Strategia</span>
-        <strong>${position.strategy_type || "—"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Orizzonte</span>
-        <strong>
-          ${position.planned_horizon_sessions ?? "—"} sessioni
-        </strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Ingresso</span>
-        <strong>${formatDate(position.entry_date)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Entry</span>
-        <strong>${money(position.entry_price)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Prezzo attuale</span>
-        <strong>${money(position.mark_price)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Prezzo aggiornato</span>
-        <strong>${position.price_updated_at || "—"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>P&amp;L</span>
-        <strong class="${cls(pnl)}">
-          ${money(pnl)}
-        </strong>
-      </div>
-
-      <div class="detail-item">
-        <span>P&amp;L %</span>
-        <strong class="${cls(pnlPct)}">
-          ${pct(pnlPct)}
-        </strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Current R</span>
-        <strong class="${cls(currentR)}">
-          ${num(currentR)}
-        </strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Stop</span>
-        <strong>${money(position.stop)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Target</span>
-        <strong>${money(position.target)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Giorni</span>
-        <strong>${num(position.holding_days, 0)}</strong>
-      </div>
-
+      <div class="detail-item"><span>Ticker</span><strong>${position.ticker || "—"}</strong></div>
+      <div class="detail-item"><span>Shares</span><strong>${num(position.shares, 0)}</strong></div>
+      <div class="detail-item"><span>Invested Capital</span><strong>${money(position.notional)}</strong></div>
+      <div class="detail-item"><span>Status</span><strong class="${watch ? "negative" : "positive"}">${watch ? "WATCH" : "OPEN"}</strong></div>
+      <div class="detail-item"><span>Strategy</span><strong>${position.strategy_type || "—"}</strong></div>
+      <div class="detail-item"><span>Horizon</span><strong>${position.planned_horizon_sessions ?? "—"} sessions</strong></div>
+      <div class="detail-item"><span>Entry Date</span><strong>${formatDate(position.entry_date)}</strong></div>
+      <div class="detail-item"><span>Entry</span><strong>${money(position.entry_price)}</strong></div>
+      <div class="detail-item"><span>Current Price</span><strong>${money(position.mark_price)}</strong></div>
+      <div class="detail-item"><span>Price Updated</span><strong>${formatDateTime(position.price_updated_at)}</strong></div>
+      <div class="detail-item"><span>P&amp;L</span><strong class="${cls(pnl)}">${money(pnl)}</strong></div>
+      <div class="detail-item"><span>P&amp;L %</span><strong class="${cls(pnlPct)}">${pct(pnlPct)}</strong></div>
+      <div class="detail-item"><span>Current R</span><strong class="${cls(currentR)}">${num(currentR)}</strong></div>
+      <div class="detail-item"><span>Stop</span><strong>${money(position.stop)}</strong></div>
+      <div class="detail-item"><span>Target</span><strong>${money(position.target)}</strong></div>
+      <div class="detail-item"><span>Days</span><strong>${num(position.holding_days, 0)}</strong></div>
     </div>
-
     <div class="detail-section">
-
       <h3>Signal Metrics</h3>
-
       ${buildSignalMetrics(position)}
-
     </div>
   `;
 }
@@ -481,94 +345,39 @@ function renderOpenDetail(position) {
 // Closed detail
 // ------------------------------------------------------------
 
+// ------------------------------------------------------------
+// Closed detail
+// ------------------------------------------------------------
+
 function renderClosedDetail(position) {
   const container = document.getElementById("detailContent");
-
   const pnl = Number(position.realized_pnl || 0);
   const pnlPct = Number(position.realized_return || 0);
+  const realizedR = Number(position.realized_r || 0);
 
   container.innerHTML = `
     <div class="detail-grid">
-
-      <div class="detail-item">
-        <span>Ticker</span>
-        <strong>${position.ticker || "—"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Azioni</span>
-        <strong>${num(position.shares, 0)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Capitale investito</span>
-        <strong>${money(position.notional)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Strategia</span>
-        <strong>${position.strategy_type || "—"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Orizzonte</span>
-        <strong>
-          ${position.planned_horizon_sessions ?? "—"} sessioni
-        </strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Rank</span>
-        <strong>${position.rank ?? "—"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Data ingresso</span>
-        <strong>${formatDate(position.entry_date)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Entry</span>
-        <strong>${money(position.entry_price)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Exit</span>
-        <strong>${money(position.exit_price)}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Realized P&amp;L</span>
-        <strong class="${cls(pnl)}">
-          ${money(pnl)}
-        </strong>
-      </div>
-
-      <div class="detail-item">
-        <span>P&amp;L %</span>
-        <strong class="${cls(pnlPct)}">
-          ${pct(pnlPct)}
-        </strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Motivo chiusura</span>
-        <strong>${position.close_reason || "—"}</strong>
-      </div>
-
-      <div class="detail-item">
-        <span>Data uscita</span>
-        <strong>${formatDate(position.exit_date)}</strong>
-      </div>
-
+      <div class="detail-item"><span>Ticker</span><strong>${position.ticker || "—"}</strong></div>
+      <div class="detail-item"><span>Shares</span><strong>${num(position.shares, 0)}</strong></div>
+      <div class="detail-item"><span>Invested Capital</span><strong>${money(position.notional)}</strong></div>
+      <div class="detail-item"><span>Strategy</span><strong>${position.strategy_type || "—"}</strong></div>
+      <div class="detail-item"><span>Horizon</span><strong>${position.planned_horizon_sessions ?? "—"} sessions</strong></div>
+      <div class="detail-item"><span>Rank</span><strong>${position.rank ?? "—"}</strong></div>
+      <div class="detail-item"><span>Entry Date</span><strong>${formatDate(position.entry_date)}</strong></div>
+      <div class="detail-item"><span>Entry</span><strong>${money(position.entry_price)}</strong></div>
+      <div class="detail-item"><span>Exit Price</span><strong>${money(position.exit_price)}</strong></div>
+      <div class="detail-item"><span>Stop</span><strong>${money(position.stop)}</strong></div>
+      <div class="detail-item"><span>Target</span><strong>${money(position.target)}</strong></div>
+      <div class="detail-item"><span>Realized P&amp;L</span><strong class="${cls(pnl)}">${money(pnl)}</strong></div>
+      <div class="detail-item"><span>P&amp;L %</span><strong class="${cls(pnlPct)}">${pct(pnlPct)}</strong></div>
+      <div class="detail-item"><span>Realized R</span><strong class="${cls(realizedR)}">${num(realizedR)}</strong></div>
+      <div class="detail-item"><span>Days</span><strong>${num(position.holding_days, 0)}</strong></div>
+      <div class="detail-item"><span>Status</span><strong>${position.status_label || "CLOSED"}</strong></div>
+      <div class="detail-item"><span>Exit Date</span><strong>${formatDate(position.exit_date)}</strong></div>
     </div>
-
     <div class="detail-section">
-
       <h3>Signal Metrics</h3>
-
       ${buildSignalMetrics(position)}
-
     </div>
   `;
 }
@@ -577,59 +386,53 @@ function renderClosedDetail(position) {
 // Load dashboard data
 // ------------------------------------------------------------
 
+// ------------------------------------------------------------
+// Load dashboard data
+// ------------------------------------------------------------
+
 async function loadDashboard() {
   try {
-    setStatus("Aggiornamento...", true);
+    setStatus("Loading...", true);
 
-    const response = await fetch(
-      `${DATA_URL}?t=${Date.now()}`,
-      {
-        cache: "no-store"
-      }
-    );
-
-    if (!response.ok) {
-      throw new Error(
-        `HTTP ${response.status}`
-      );
-    }
+    const response = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error(`HTTP ${response.status}`);
 
     const data = await response.json();
-
     dashboardData = data;
 
     renderSummary(data);
     renderOpenPositions(data.open || []);
     renderClosedPositions(data.closed || []);
 
+    const updatedAt = document.getElementById("updatedAt");
+    if (updatedAt) {
+      updatedAt.textContent = data.generated_at
+        ? `Updated ${formatDateTime(data.generated_at)}`
+        : "Updated —";
+    }
+
     setStatus("Online", true);
-
   } catch (error) {
+    console.error("Dashboard data load error:", error);
 
-    console.error(
-      "Errore caricamento dashboard:",
-      error
-    );
+    const updatedAt = document.getElementById("updatedAt");
+    if (updatedAt) updatedAt.textContent = "Updated —";
 
-    setStatus("Errore dati", false);
+    setStatus("Data Error", false);
 
     document.getElementById("openTableBody").innerHTML = `
-      <tr>
-        <td colspan="14" class="empty">
-          Impossibile caricare i dati.
-        </td>
-      </tr>
+      <tr><td colspan="14" class="empty">Unable to load dashboard data.</td></tr>
     `;
 
     document.getElementById("closedTableBody").innerHTML = `
-      <tr>
-        <td colspan="10" class="empty">
-          Impossibile caricare i dati.
-        </td>
-      </tr>
+      <tr><td colspan="14" class="empty">Unable to load dashboard data.</td></tr>
     `;
   }
 }
+
+// ------------------------------------------------------------
+// Auto refresh
+// ------------------------------------------------------------
 
 // ------------------------------------------------------------
 // Auto refresh
