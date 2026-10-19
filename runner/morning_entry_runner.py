@@ -15,11 +15,13 @@ def _now_local(timezone_name: str) -> datetime:
 
 
 def _in_entry_window(now: datetime) -> bool:
-    """Allow new paper entries only during the US opening window."""
+    """Allow new paper entries during the delayed US opening window."""
     if now.weekday() >= 5:
         return False
 
-    return time(9, 30) <= now.time() < time(10, 0)
+    # GitHub Actions scheduled workflows can start later than their
+    # scheduled time. Allow delayed execution through 10:30 ET.
+    return time(9, 30) <= now.time() < time(10, 30)
 
 
 def get_opening_window_prices(
@@ -62,10 +64,18 @@ def get_opening_window_prices(
         frame.index = index.tz_convert(timezone)
         frame = frame.sort_index()
 
-        regular = frame.between_time("09:30", "09:59:59")
+        # Use the latest available regular-session 5-minute price
+        # from the market open up to the actual workflow execution time.
+        current_time = _now_local(timezone_name)
+        
+        regular = frame[
+        (frame.index.time >= time(9, 30))
+         & (frame.index.time <= current_time.time())
+        ]
+
         if regular.empty:
-            print(f"PRICE_FETCH_NO_OPENING_WINDOW {ticker}")
-            continue
+        print(f"PRICE_FETCH_NO_OPENING_WINDOW {ticker}")
+        continue
 
         price = float(regular["Close"].iloc[-1])
         if not pd.notna(price) or price <= 0:
