@@ -32,13 +32,16 @@ def get_opening_window_prices(
 ) -> tuple[dict[str, float], dict[str, str]]:
     """Get the latest available regular-session 5-minute price.
 
-    This is paper trading, not a broker execution feed. The value used for
-    the simulated entry is the latest available regular-session intraday
-    close returned by Yahoo Finance in the opening window.
+    This is paper trading, not a broker execution feed. The simulated
+    entry uses the latest available regular-session intraday close
+    returned by Yahoo Finance from 09:30 ET up to the actual execution
+    time.
     """
     prices: dict[str, float] = {}
     timestamps: dict[str, str] = {}
+
     timezone = ZoneInfo(timezone_name)
+    current_time = _now_local(timezone_name)
 
     for ticker in tickers:
         try:
@@ -57,6 +60,7 @@ def get_opening_window_prices(
             continue
 
         index = pd.DatetimeIndex(frame.index)
+
         if index.tz is None:
             index = index.tz_localize("UTC")
 
@@ -66,27 +70,30 @@ def get_opening_window_prices(
 
         # Use the latest available regular-session 5-minute price
         # from the market open up to the actual workflow execution time.
-        current_time = _now_local(timezone_name)
-        
         regular = frame[
-        (frame.index.time >= time(9, 30))
-         & (frame.index.time <= current_time.time())
+            (frame.index.time >= time(9, 30))
+            & (frame.index.time <= current_time.time())
         ]
 
         if regular.empty:
-        print(f"PRICE_FETCH_NO_OPENING_WINDOW {ticker}")
-        continue
+            print(f"PRICE_FETCH_NO_OPENING_WINDOW {ticker}")
+            continue
 
         price = float(regular["Close"].iloc[-1])
+
         if not pd.notna(price) or price <= 0:
             print(f"PRICE_FETCH_INVALID {ticker}")
             continue
 
         timestamp = regular.index[-1].isoformat()
+
         prices[ticker] = price
         timestamps[ticker] = timestamp
 
-        print(f"OPENING_PRICE {ticker} {price:.4f} {timestamp}")
+        print(
+            f"OPENING_PRICE {ticker} "
+            f"{price:.4f} {timestamp}"
+        )
 
     return prices, timestamps
 
@@ -100,16 +107,18 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
     from scoring.signal_engine import rank_top10
 
     cfg = load_config(config_path)
+
     timezone_name = cfg["intraday"]["timezone"]
     now = _now_local(timezone_name)
 
-    # Hard safety guard: a manual workflow_dispatch outside this window
+    # Safety guard: manual workflow_dispatch outside this window
     # cannot accidentally open positions.
     if not _in_entry_window(now):
         print(
             "Morning entry skipped: "
             f"outside opening window ({now.isoformat()})."
         )
+
         return {
             "config_path": str(Path(config_path)),
             "scanned": 0,
@@ -121,8 +130,12 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
         }
 
     db_path = cfg["database"]["path"]
+
     ensure_portfolio_schema(db_path)
 
+    # ------------------------------------------------------------
+    # 1. Scan the S&P 500
+    # ------------------------------------------------------------
     scan, history = run_scan(
         source_url=cfg["market"]["sp500_source_url"],
         min_price=cfg["scanner"]["min_price"],
@@ -133,9 +146,23 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
         max_symbols=cfg["scanner"]["max_symbols"],
     )
 
-    technical = analyze_candidates(scan, history, **cfg["technical"])
-    top10 = rank_top10(technical, cfg["portfolio"]["positions"])
+    # ------------------------------------------------------------
+    # 2. Technical analysis + Top 10
+    # ------------------------------------------------------------
+    technical = analyze_candidates(
+        scan,
+        history,
+        **cfg["technical"],
+    )
 
+    top10 = rank_top10(
+        technical,
+        cfg["portfolio"]["positions"],
+    )
+
+    # ------------------------------------------------------------
+    # 3. Load paper portfolio
+    # ------------------------------------------------------------
     portfolio = PaperPortfolio(
         db_path=db_path,
         starting_cash=cfg["portfolio"]["starting_cash"],
@@ -143,15 +170,21 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
     )
 
     current_open = portfolio.open_positions()
+
     available_slots = max(
         0,
         cfg["portfolio"]["positions"] - len(current_open),
     )
 
+    # ------------------------------------------------------------
+    # 4. Do not open anything if portfolio is already full
+    # ------------------------------------------------------------
     if available_slots <= 0:
         print("Morning entry skipped: portfolio is full.")
+
         snapshot = portfolio.snapshot()
         portfolio_status = portfolio.status()
+
         persist_selection(
             scan,
             technical,
@@ -159,6 +192,7 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
             db_path,
             portfolio_status,
         )
+
         return {
             "config_path": str(Path(config_path)),
             "scanned": len(scan),
@@ -169,10 +203,15 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
             "skipped": True,
         }
 
+    # ------------------------------------------------------------
+    # 5. No candidates
+    # ------------------------------------------------------------
     if top10.empty:
         print("Morning entry skipped: no candidates.")
+
         snapshot = portfolio.snapshot()
         portfolio_status = portfolio.status()
+
         persist_selection(
             scan,
             technical,
@@ -180,6 +219,7 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
             db_path,
             portfolio_status,
         )
+
         return {
             "config_path": str(Path(config_path)),
             "scanned": len(scan),
@@ -190,8 +230,16 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
             "skipped": True,
         }
 
-    candidate_tickers = top10["ticker"].astype(str).tolist()
+    candidate_tickers = (
+        top10["ticker"]
+        .astype(str)
+        .tolist()
+    )
 
+    # ------------------------------------------------------------
+    # 6. Get latest available 5-minute prices
+    #    from 09:30 ET up to actual execution time
+    # ------------------------------------------------------------
     entry_prices, entry_timestamps = get_opening_window_prices(
         candidate_tickers,
         timezone_name=timezone_name,
@@ -200,9 +248,14 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
     )
 
     if not entry_prices:
-        print("Morning entry skipped: no opening prices available.")
+        print(
+            "Morning entry skipped: "
+            "no opening prices available."
+        )
+
         snapshot = portfolio.snapshot()
         portfolio_status = portfolio.status()
+
         persist_selection(
             scan,
             technical,
@@ -210,6 +263,7 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
             db_path,
             portfolio_status,
         )
+
         return {
             "config_path": str(Path(config_path)),
             "scanned": len(scan),
@@ -220,45 +274,79 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
             "skipped": True,
         }
 
-    # Keep only candidates for which a current regular-session price exists.
+    # ------------------------------------------------------------
+    # 7. Keep only candidates with a valid intraday price
+    # ------------------------------------------------------------
     execution_top10 = top10[
-        top10["ticker"].astype(str).isin(entry_prices.keys())
+        top10["ticker"]
+        .astype(str)
+        .isin(entry_prices.keys())
     ].copy()
 
-    # Rebuild the execution plan from the opening-window price.
+    # ------------------------------------------------------------
+    # 8. Recalculate Entry / Stop / Target
+    #    using the actual intraday execution price
+    # ------------------------------------------------------------
     for idx, row in execution_top10.iterrows():
         ticker = str(row["ticker"])
+
         entry = float(entry_prices[ticker])
         atr = float(row["atr14"])
 
         execution_top10.at[idx, "entry"] = entry
+
         execution_top10.at[idx, "stop"] = (
             entry
-            - float(cfg["technical"]["stop_atr_multiple"]) * atr
+            - float(
+                cfg["technical"]["stop_atr_multiple"]
+            ) * atr
         )
+
         execution_top10.at[idx, "target"] = (
             entry
-            + float(cfg["technical"]["target_atr_multiple"]) * atr
+            + float(
+                cfg["technical"]["target_atr_multiple"]
+            ) * atr
         )
-        execution_top10.at[idx, "entry_source"] = "OPENING_WINDOW_INTRADAY"
-        execution_top10.at[idx, "entry_reference_time"] = entry_timestamps.get(ticker)
 
-    # sync_from_top10 only fills free slots and never replaces OPEN positions.
+        execution_top10.at[idx, "entry_source"] = (
+            "OPENING_WINDOW_INTRADAY"
+        )
+
+        execution_top10.at[idx, "entry_reference_time"] = (
+            entry_timestamps.get(ticker)
+        )
+
+    # ------------------------------------------------------------
+    # 9. Open paper positions
+    #
+    # sync_from_top10:
+    # - fills only free slots
+    # - never replaces existing open positions
+    # - therefore repeated scheduled runs cannot duplicate trades
+    # ------------------------------------------------------------
     open_positions = portfolio.sync_from_top10(
         execution_top10,
         trade_reason="OPENING_ENTRY",
     )
 
+    # ------------------------------------------------------------
+    # 10. Snapshot
+    # ------------------------------------------------------------
     latest_prices = {
         ticker: float(frame["Close"].iloc[-1])
         for ticker, frame in history.items()
         if not frame.empty
     }
+
     latest_prices.update(entry_prices)
 
     snapshot = portfolio.snapshot(latest_prices)
     portfolio_status = portfolio.status(latest_prices)
 
+    # ------------------------------------------------------------
+    # 11. Persist scanner selection
+    # ------------------------------------------------------------
     persist_selection(
         scan,
         technical,
@@ -267,12 +355,33 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
         portfolio_status,
     )
 
-    print("STOCK SCOUT AI — MORNING ENTRY CYCLE")
-    print(f"Scanned: {len(scan)} symbols")
-    print(f"Top 10 candidates: {len(top10)}")
-    print(f"Opening prices available: {len(entry_prices)}")
-    print(f"Open positions: {len(open_positions)}")
-    print(f"Portfolio snapshot: {snapshot}")
+    # ------------------------------------------------------------
+    # 12. Logging
+    # ------------------------------------------------------------
+    print(
+        "STOCK SCOUT AI — MORNING ENTRY CYCLE"
+    )
+    print(
+        f"Execution time: {now.isoformat()}"
+    )
+    print(
+        f"Scanned: {len(scan)} symbols"
+    )
+    print(
+        f"Top 10 candidates: {len(top10)}"
+    )
+    print(
+        f"Opening prices available: {len(entry_prices)}"
+    )
+    print(
+        f"Execution candidates: {len(execution_top10)}"
+    )
+    print(
+        f"Open positions: {len(open_positions)}"
+    )
+    print(
+        f"Portfolio snapshot: {snapshot}"
+    )
 
     return {
         "config_path": str(Path(config_path)),
@@ -287,15 +396,22 @@ def run_once(config_path: str = "config/config.yaml") -> dict[str, Any]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(
-        description="Run the Stock Scout AI opening-window paper-entry cycle"
+        description=(
+            "Run the Stock Scout AI opening-window "
+            "paper-entry cycle"
+        )
     )
+
     parser.add_argument(
         "--config",
         default="config/config.yaml",
         help="Path to the YAML configuration file",
     )
+
     args = parser.parse_args()
+
     run_once(args.config)
+
     return 0
 
 
