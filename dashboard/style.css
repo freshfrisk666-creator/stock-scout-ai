@@ -496,7 +496,7 @@ body.modal-open {
 
 .trade-chart-canvas {
   width: 100%;
-  min-height: 430px;
+  min-height: 350px;
   flex: 1 1 auto;
   background: #0b0f14;
 }
