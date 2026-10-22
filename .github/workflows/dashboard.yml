@@ -2,12 +2,22 @@ name: stock-scout-dashboard
 
 on:
   workflow_dispatch:
+
+  # Aggiornamento dopo l'ingresso del mattino e dopo il ciclo EOD.
   workflow_run:
     workflows:
-      - paper-trading
       - morning-entry
-      - intraday-paper-monitor
+      - paper-trading
     types: [completed]
+
+  # Aggiornamento intraday indipendente dal monitor di trading.
+  # Il monitor continua ogni 5 minuti; il dashboard viene ricostruito
+  # meno frequentemente per non appesantire il sistema.
+  schedule:
+    - cron: "0,30 10-15 * * 1-5"
+      timezone: "America/New_York"
+    - cron: "0 16 * * 1-5"
+      timezone: "America/New_York"
 
 permissions:
   contents: read
@@ -20,25 +30,30 @@ concurrency:
 
 jobs:
   deploy:
-    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success'
+    # workflow_run: esegui solo se il workflow che ha generato
+    # l'evento è terminato correttamente.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event_name == 'schedule' ||
+      github.event.workflow_run.conclusion == 'success'
+
     runs-on: ubuntu-latest
     timeout-minutes: 10
+
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
 
     steps:
       - name: Checkout latest main
-        uses: actions/checkout@v6
+        uses: actions/checkout@v4
         with:
           ref: main
-          fetch-depth: 1
 
       - name: Set up Python
-        uses: actions/setup-python@v7
+        uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-          cache: pip
 
       - name: Install dashboard dependencies
         run: |
@@ -46,16 +61,18 @@ jobs:
           pip install pandas yfinance
 
       - name: Build dashboard data
-        run: python scripts/build_dashboard.py
+        run: |
+          python scripts/build_dashboard.py
 
       - name: Build trade chart data
-        run: python scripts/build_trade_charts.py
+        run: |
+          python scripts/build_trade_charts.py
 
       - name: Configure GitHub Pages
         uses: actions/configure-pages@v5
 
       - name: Upload dashboard
-        uses: actions/upload-pages-artifact@v4
+        uses: actions/upload-pages-artifact@v3
         with:
           path: dashboard
 
