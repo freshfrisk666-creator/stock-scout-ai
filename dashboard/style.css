@@ -810,3 +810,18 @@ body.modal-open {
   font-size: 14px;
   line-height: 1;
 }
+
+/* ------------------------------------------------------------
+   Stock ticker links
+   ------------------------------------------------------------ */
+
+.ticker-link {
+  font-weight: 700;
+  color: inherit;
+  text-decoration: none;
+}
+
+.ticker-link:hover {
+  text-decoration: underline;
+  cursor: pointer;
+}

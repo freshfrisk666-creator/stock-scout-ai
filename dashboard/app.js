@@ -87,6 +87,31 @@ function formatDateTime(value) {
   });
 }
 
+function stockLink(ticker) {
+  if (!ticker) {
+    return "—";
+  }
+
+  const symbol = String(ticker).trim().toUpperCase();
+
+  if (!symbol) {
+    return "—";
+  }
+
+  const url = `https://finance.yahoo.com/quote/${encodeURIComponent(symbol)}/`;
+
+  return `
+    <a
+      href="${url}"
+      target="_blank"
+      rel="noopener noreferrer"
+      class="ticker-link"
+      onclick="event.stopPropagation();"
+      title="Open ${symbol} on Yahoo Finance"
+    >${symbol}</a>
+  `;
+}
+
 // ------------------------------------------------------------
 // Status
 // ------------------------------------------------------------
@@ -216,7 +241,7 @@ function renderOpenPositions(positions) {
     return `
       <tr class="position-row" data-id="${position.id}">
         <td>${position.rank ?? index + 1}</td>
-        <td><strong>${position.ticker || "—"}</strong></td>
+        <td>${stockLink(position.ticker)}</td>
         <td>${num(position.shares, 0)}</td>
         <td>${money(position.notional)}</td>
         <td>${money(position.entry_price)}</td>
@@ -272,7 +297,7 @@ function renderClosedPositions(positions) {
     return `
       <tr class="position-row" data-id="${position.id}">
         <td>${position.rank ?? index + 1}</td>
-        <td><strong>${position.ticker || "—"}</strong></td>
+        <td>${stockLink(position.ticker)}</td>
         <td>${num(position.shares, 0)}</td>
         <td>${money(position.notional)}</td>
         <td>${money(position.entry_price)}</td>
