@@ -3,30 +3,12 @@ name: morning-entry
 on:
   workflow_dispatch:
   schedule:
-    # Opening-window attempts.
-    # GitHub Actions may delay scheduled workflows, so multiple
-    # attempts are used during the morning entry window.
-    - cron: "35 9 * * 1-5"
-      timezone: "America/New_York"
+    # Three attempts during the US opening window.
     - cron: "40 9 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "45 9 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "50 9 * * 1-5"
       timezone: "America/New_York"
     - cron: "55 9 * * 1-5"
       timezone: "America/New_York"
-    - cron: "0 10 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "5 10 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "10 10 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "15 10 * * 1-5"
-      timezone: "America/New_York"
     - cron: "20 10 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "25 10 * * 1-5"
       timezone: "America/New_York"
 
 permissions:
