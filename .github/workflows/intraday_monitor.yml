@@ -92,11 +92,6 @@ jobs:
           gh issue comment "$issue_url" --body "$body"
 
       - name: Persist paper portfolio database if changed
-      - name: Refresh dashboard after trade closure
-        if: steps.monitor.outputs.closed_count != '0'
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh workflow run dashboard.yml --ref main
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
@@ -110,3 +105,9 @@ jobs:
 
           git commit -m "chore: update intraday paper portfolio state"
           git push origin HEAD:main
+
+      - name: Refresh dashboard after trade closure
+        if: steps.monitor.outputs.closed_count != '0'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh workflow run dashboard.yml --ref main
