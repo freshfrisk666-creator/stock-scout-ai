@@ -2,14 +2,6 @@ name: morning-entry
 
 on:
   workflow_dispatch:
-  schedule:
-    # Three attempts during the US opening window.
-    - cron: "40 9 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "55 9 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "20 10 * * 1-5"
-      timezone: "America/New_York"
 
 permissions:
   contents: write

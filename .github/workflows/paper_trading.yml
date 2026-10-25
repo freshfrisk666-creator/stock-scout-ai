@@ -2,11 +2,6 @@ name: paper-trading
 
 on:
   workflow_dispatch:
-  schedule:
-    # Daily selection and exit processing after the US cash-market close.
-    # IMPORTANT: this workflow NEVER opens new positions.
-    - cron: "30 16 * * 1-5"
-      timezone: "America/New_York"
 
 permissions:
   contents: write

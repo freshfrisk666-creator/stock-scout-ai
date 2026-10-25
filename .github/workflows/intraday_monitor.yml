@@ -2,15 +2,6 @@ name: intraday-paper-monitor
 
 on:
   workflow_dispatch:
-  schedule:
-    # Five-minute checks, shifted away from the top of the hour.
-    - cron: "47-57/5 9 * * 1-5"
-      timezone: "America/New_York"
-    - cron: "2-57/5 10-15 * * 1-5"
-      timezone: "America/New_York"
-    # Final check at the end of the regular session.
-    - cron: "0 16 * * 1-5"
-      timezone: "America/New_York"
 
 permissions:
   contents: write
