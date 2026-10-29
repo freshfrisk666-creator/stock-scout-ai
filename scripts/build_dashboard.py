@@ -277,23 +277,49 @@ def main():
         target = clean(row.target)
 
         realized_r = None
-        if exit_price is not None and stop is not None and float(entry) > float(stop):
-            realized_r = (float(exit_price) - float(entry)) / (float(entry) - float(stop))
 
-        entry_dt = pd.to_datetime(row.entry_date, utc=True, errors="coerce")
-        exit_dt = pd.to_datetime(row.exit_date, utc=True, errors="coerce")
+        if (
+            exit_price is not None
+            and stop is not None
+            and float(entry) > float(stop)
+        ):
+            realized_r = (
+                (float(exit_price) - float(entry))
+                / (float(entry) - float(stop))
+            )
+
+        entry_dt = pd.to_datetime(
+            row.entry_date,
+            utc=True,
+            errors="coerce",
+        )
+
+        exit_dt = pd.to_datetime(
+            row.exit_date,
+            utc=True,
+            errors="coerce",
+        )
+
         holding_days = None
+
         if pd.notna(entry_dt) and pd.notna(exit_dt):
-            holding_days = max(0, (exit_dt - entry_dt).total_seconds() / 86400)
+            holding_days = max(
+                0,
+                (exit_dt - entry_dt).total_seconds()
+                / 86400,
+            )
 
         reason = str(row.close_reason or "")
+
         status_label = {
             "TARGET_CLOSE": "TARGET",
             "STOP_CLOSE": "STOP",
             "MANUAL_CLOSE": "MANUAL",
         }.get(
             reason,
-            reason.replace("_", " ").strip().title() if reason else "CLOSED",
+            reason.replace("_", " ").strip().title()
+            if reason
+            else "CLOSED",
         )
 
         closed.append(
@@ -331,6 +357,32 @@ def main():
                 ),
             }
         )
+
+    # ---------------------------------------------------------
+    # WIN RATE
+    # ---------------------------------------------------------
+
+    closed_count = len(closed)
+
+    winning_trades = sum(
+        1
+        for position in closed
+        if position["realized_pnl"] is not None
+        and float(position["realized_pnl"]) > 0
+    )
+
+    losing_trades = sum(
+        1
+        for position in closed
+        if position["realized_pnl"] is not None
+        and float(position["realized_pnl"]) < 0
+    )
+
+    win_rate = (
+        (winning_trades / closed_count) * 100
+        if closed_count > 0
+        else None
+    )
 
     # ---------------------------------------------------------
     # PORTFOLIO SUMMARY
@@ -389,6 +441,9 @@ def main():
             "realized_pnl": realized_pnl,
             "open_positions": len(open_positions),
             "closed_positions": len(closed),
+            "winning_trades": winning_trades,
+            "losing_trades": losing_trades,
+            "win_rate": win_rate,
         },
 
         "open": opens,
@@ -413,8 +468,18 @@ def main():
         f"Dashboard data written: {OUTPUT}; "
         f"Open: {len(open_positions)}; "
         f"Closed: {len(closed)}; "
-        f"Equity: {equity:.2f}; "
-        f"Latest price: {data['latest_price_at']}"
+        f"Winners: {winning_trades}; "
+        f"Losers: {losing_trades}; "
+        f"Win Rate: "
+        f"{win_rate:.2f}%"
+        if win_rate is not None
+        else
+        f"Dashboard data written: {OUTPUT}; "
+        f"Open: {len(open_positions)}; "
+        f"Closed: {len(closed)}; "
+        f"Winners: {winning_trades}; "
+        f"Losers: {losing_trades}; "
+        f"Win Rate: —"
     )
 
 

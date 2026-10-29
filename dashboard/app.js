@@ -116,10 +116,6 @@ function stockLink(ticker) {
 // Status
 // ------------------------------------------------------------
 
-// ------------------------------------------------------------
-// Status
-// ------------------------------------------------------------
-
 function setStatus(text, online = true) {
   const statusText = document.getElementById("statusText");
   const statusDot = document.getElementById("statusDot");
@@ -153,6 +149,7 @@ function renderSummary(data) {
   const unrealizedElement = document.getElementById("unrealizedPnl");
   const realizedElement = document.getElementById("realizedPnl");
   const totalElement = document.getElementById("totalPnl");
+  const winRateElement = document.getElementById("winRate");
 
   unrealizedElement.textContent = money(unrealizedPnl);
   realizedElement.textContent = money(realizedPnl);
@@ -161,6 +158,20 @@ function renderSummary(data) {
   unrealizedElement.className = `card-value ${cls(unrealizedPnl)}`;
   realizedElement.className = `card-value ${cls(realizedPnl)}`;
   totalElement.className = `card-value ${cls(totalPnl)}`;
+
+  if (winRateElement) {
+    winRateElement.textContent = pct(summary.win_rate);
+
+    if (
+      summary.win_rate !== null &&
+      summary.win_rate !== undefined
+    ) {
+      winRateElement.className =
+        `card-value ${cls(summary.win_rate - 50)}`;
+    } else {
+      winRateElement.className = "card-value";
+    }
+  }
 
   document.getElementById("openPositions").textContent =
     num(summary.open_positions || 0, 0);
@@ -261,6 +272,7 @@ function renderOpenPositions(positions) {
     row.addEventListener("click", () => {
       const id = Number(row.dataset.id);
       const position = positions.find(item => Number(item.id) === id);
+
       if (position) {
         selectedPosition = position;
         renderOpenDetail(position);
@@ -268,10 +280,6 @@ function renderOpenPositions(positions) {
     });
   });
 }
-
-// ------------------------------------------------------------
-// Closed positions
-// ------------------------------------------------------------
 
 // ------------------------------------------------------------
 // Closed positions
@@ -292,7 +300,12 @@ function renderClosedPositions(positions) {
     const pnlPct = Number(position.realized_return || 0);
     const realizedR = Number(position.realized_r || 0);
     const status = position.status_label || "CLOSED";
-    const statusClass = status === "TARGET" ? "target" : status === "STOP" ? "stop" : "closed";
+    const statusClass =
+      status === "TARGET"
+        ? "target"
+        : status === "STOP"
+          ? "stop"
+          : "closed";
 
     return `
       <tr class="position-row" data-id="${position.id}">
@@ -317,6 +330,7 @@ function renderClosedPositions(positions) {
     row.addEventListener("click", () => {
       const id = Number(row.dataset.id);
       const position = positions.find(item => Number(item.id) === id);
+
       if (position) {
         selectedPosition = position;
         renderClosedDetail(position);
@@ -324,10 +338,6 @@ function renderClosedPositions(positions) {
     });
   });
 }
-
-// ------------------------------------------------------------
-// Open detail
-// ------------------------------------------------------------
 
 // ------------------------------------------------------------
 // Open detail
@@ -370,10 +380,6 @@ function renderOpenDetail(position) {
 // Closed detail
 // ------------------------------------------------------------
 
-// ------------------------------------------------------------
-// Closed detail
-// ------------------------------------------------------------
-
 function renderClosedDetail(position) {
   const container = document.getElementById("detailContent");
   const pnl = Number(position.realized_pnl || 0);
@@ -411,16 +417,18 @@ function renderClosedDetail(position) {
 // Load dashboard data
 // ------------------------------------------------------------
 
-// ------------------------------------------------------------
-// Load dashboard data
-// ------------------------------------------------------------
-
 async function loadDashboard() {
   try {
     setStatus("Loading...", true);
 
-    const response = await fetch(`${DATA_URL}?t=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    const response = await fetch(
+      `${DATA_URL}?t=${Date.now()}`,
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
 
     const data = await response.json();
     dashboardData = data;
@@ -430,6 +438,7 @@ async function loadDashboard() {
     renderClosedPositions(data.closed || []);
 
     const updatedAt = document.getElementById("updatedAt");
+
     if (updatedAt) {
       updatedAt.textContent = data.generated_at
         ? `Updated ${formatDateTime(data.generated_at)}`
@@ -441,7 +450,10 @@ async function loadDashboard() {
     console.error("Dashboard data load error:", error);
 
     const updatedAt = document.getElementById("updatedAt");
-    if (updatedAt) updatedAt.textContent = "Updated —";
+
+    if (updatedAt) {
+      updatedAt.textContent = "Updated —";
+    }
 
     setStatus("Data Error", false);
 
@@ -454,10 +466,6 @@ async function loadDashboard() {
     `;
   }
 }
-
-// ------------------------------------------------------------
-// Auto refresh
-// ------------------------------------------------------------
 
 // ------------------------------------------------------------
 // Auto refresh
